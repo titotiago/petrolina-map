@@ -215,6 +215,35 @@ def emendas(ctx) -> dict | None:
     }
 
 
+def licitacoes() -> dict | None:
+    l = _read("licitacoes_petrolina.csv")
+    if l is None:
+        return None
+    money = lambda x: pd.to_numeric(str(x).replace("R$", "").replace(".", "").replace(",", ".").strip(), errors="coerce")
+    l["estimado"] = l.valorEstimado.map(money)
+    l["contratado"] = l.valorContratado.map(money)
+    l["valor"] = l.contratado.fillna(l.estimado)
+    # implausible values (above R$ 500 mi, a third of the city's yearly budget) are data-entry errors or concession revenue
+    outliers = l[l.valor > 5e8]
+    l.loc[l.valor > 5e8, "valor"] = np.nan
+    gaz = Gazetteer()
+    loc = l.objeto.fillna("").map(gaz.find)
+    l["bairro"] = loc.map(lambda x: x[0] if x else None)
+    l["regiao"] = loc.map(lambda x: x[1] if x else None)
+    top = l.sort_values("valor", ascending=False).head(25)
+    return {
+        "total": int(len(l)), "valor_total": r(float(l.valor.sum()), 0),
+        "descartados": [{"objeto": str(x.objeto)[:160], "valor_informado": r(float(x.contratado if pd.notna(x.contratado) else x.estimado), 0)} for x in outliers.itertuples()],
+        "por_ano": {k: {"n": int(len(g)), "valor": r(float(g.valor.sum()), 0)} for k, g in l.groupby("ano_consulta")},
+        "por_orgao": {k: r(float(v), 0) for k, v in l.groupby("orgao").valor.sum().sort_values(ascending=False).head(12).items()},
+        "por_modalidade": {k: int(v) for k, v in l.modalidade.value_counts().items()},
+        "localizadas": int(l.regiao.notna().sum()),
+        "por_regiao": {k: r(float(v), 0) for k, v in l[l.regiao.notna()].groupby("regiao").valor.sum().items()},
+        "maiores": [{"ano": x.ano_consulta, "orgao": x.orgao, "objeto": str(x.objeto)[:240], "valor": r(float(x.valor), 0) if pd.notna(x.valor) else None,
+                     "vencedor": x.vencedor if isinstance(x.vencedor, str) and x.vencedor != "None" else None, "bairro": x.bairro} for x in top.itertuples()],
+    }
+
+
 def obras() -> list:
     o = _read("obras_federais_petrolina.csv")
     if o is None:

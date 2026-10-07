@@ -188,6 +188,7 @@ def main():
     inv = mandatos.investimentos(base, regions_out)
     em = mandatos.emendas(ctx)
     obras = mandatos.obras()
+    licit = mandatos.licitacoes()
     mandatos.add_insights(cam, inv, em, cand_out, regions_out, add)
     if cam:
         for c in cand_out:
@@ -224,7 +225,7 @@ def main():
     dump("perfil_disputa.json", pdisp)
     dump("modelo.json", mod)
     dump("transferencias.json", transf)
-    dump("mandatos.json", {"camara": cam, "investimentos": inv, "emendas": em, "obras": obras})
+    dump("mandatos.json", {"camara": cam, "investimentos": inv, "emendas": em, "obras": obras, "licitacoes": licit})
     dump("osm.json", {"categorias": osm.CATEGORIES, "pontos": osm_points, "por_regiao": osm_reg,
                       "por_local": {i: {k: (r(v, 2) if isinstance(v, float) else int(v)) for k, v in row.items()} for i, row in osm_per.iterrows()}})
     dump("extras.json", {"heranca": heirs, "projecao": proj, "bancadas": bench, "abstencao": absd, "ideologia": ideo, "renovacao": ren,

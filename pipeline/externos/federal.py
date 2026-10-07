@@ -25,10 +25,10 @@ CNPJ = "10358190000177"
 UA = {"User-Agent": "petrolina-map/1.0 (pesquisa)", "Accept": "application/json"}
 
 
-def _get(url, params=None, timeout=120, tries=4):
+def _get(url, params=None, timeout=120, tries=4, headers=None):
     for attempt in range(tries):
         try:
-            r = requests.get(url, params=params, timeout=timeout, headers=UA)
+            r = requests.get(url, params=params, timeout=(15, timeout), headers=headers or UA)
             r.raise_for_status()
             return r
         except requests.RequestException:
@@ -122,7 +122,8 @@ def licitacoes() -> pd.DataFrame:
         while True:
             try:
                 r = _get("https://licitacoes.petrolina.pe.gov.br:8082/licitacao/exportar/json",
-                         {"dataInicio": f"01/01/{y}", "dataFim": f"31/12/{y}", "page": page, "size": 500}, timeout=90, tries=2)
+                         {"dataInicio": f"01/01/{y}", "dataFim": f"31/12/{y}", "page": page, "size": 500}, timeout=90, tries=2,
+                         headers={"User-Agent": UA["User-Agent"], "Accept": "*/*"})  # this export endpoint answers 406 to Accept: application/json
                 data = r.json()
             except Exception as e:
                 print(f"  licitações {y} p{page}: indisponível ({e})")

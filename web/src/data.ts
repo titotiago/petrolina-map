@@ -117,6 +117,9 @@ export interface Mandatos {
   emendas: null | { total_recebido: number; por_ano: Record<string, number>; autores: { autor: string; valor: number; votos_petrolina: Record<string, number> }[];
     favorecidos: { nome: string; valor: number }[]; por_tipo: Record<string, number>; transferencias_especiais: Record<string, string | number>[]; aplicacao_local_por_funcao: Record<string, number> };
   obras: { nome: string; situacao: string; especie: string; inicio: string; fim: string; lat: number | null; lon: number | null }[];
+  licitacoes: null | { total: number; valor_total: number; descartados: { objeto: string; valor_informado: number }[]; por_ano: Record<string, { n: number; valor: number }>;
+    por_orgao: Record<string, number>; por_modalidade: Record<string, number>; localizadas: number; por_regiao: Record<string, number>;
+    maiores: { ano: string; orgao: string; objeto: string; valor: number | null; vencedor: string | null; bairro: string | null }[] };
 }
 
 export interface DB {

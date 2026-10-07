@@ -6,7 +6,7 @@ import { partyColor, scaler, seq, SEQ_STOPS } from "../colors";
 import type { PlaceStyle } from "../map";
 import { avatar, bars, bindHrefs, chip, legendCats, legendRamp, table } from "./common";
 
-const MODES: [string, string][] = [["camara", "Câmara"], ["investimentos", "Gasto da prefeitura"], ["emendas", "Emendas federais"], ["obras", "Obras federais"]];
+const MODES: [string, string][] = [["camara", "Câmara"], ["investimentos", "Gasto da prefeitura"], ["licitacoes", "Licitações"], ["emendas", "Emendas federais"], ["obras", "Obras federais"]];
 
 export function renderMandatos(app: App) {
   const modo = MODES.some(([k]) => k === app.state.mmodo) ? app.state.mmodo! : "camara";
@@ -15,7 +15,7 @@ export function renderMandatos(app: App) {
   app.map.setPlaces(new Map(), (id) => esc(app.db.byId.get(id)!.nome));
   const head = `<div class="ph"><div class="eyebrow">Mandatos e recursos</div><h2>${esc(MODES.find(([k]) => k === modo)![1])}</h2></div>
     <div class="seg">${MODES.map(([k, l]) => `<button class="${k === modo ? "on" : ""}" data-href="mmodo=${k}">${l}</button>`).join("")}</div>`;
-  const body = modo === "camara" ? camara(app) : modo === "investimentos" ? investimentos(app) : modo === "emendas" ? emendas(app) : obras(app);
+  const body = modo === "camara" ? camara(app) : modo === "investimentos" ? investimentos(app) : modo === "licitacoes" ? licitacoes(app) : modo === "emendas" ? emendas(app) : obras(app);
   app.panel.innerHTML = head + body;
   bindHrefs(app.panel, (h) => app.go(Object.fromEntries(new URLSearchParams(h))));
   const t = app.panel.querySelector<HTMLElement>("#vtab");
@@ -104,4 +104,16 @@ function obras(app: App) {
   return `<p class="lead">${O.length} obras com recursos federais em Petrolina no Obrasgov (${pts.length} com coordenadas no mapa).</p>
     ${bars(Object.entries(bySit).map(([k, x]) => ({ label: k, value: x })), { format: (x) => fmt(x) })}
     <ul class="plain">${O.slice(0, 60).map((o) => `<li><b>${esc(o.nome)}</b><br><span class="muted small">${esc(o.situacao)} · ${esc(o.especie)} · ${esc(o.inicio ?? "")} → ${esc(o.fim ?? "")}</span></li>`).join("")}</ul>`;
+}
+
+function licitacoes(app: App) {
+  const L = app.db.mandatos.licitacoes;
+  if (!L) return `<p class="muted">Dados de licitações ainda não coletados.</p>`;
+  return `<p class="lead">${fmt(L.total)} licitações da Prefeitura de Petrolina (portal de licitações, ${Object.keys(L.por_ano)[0]}–${Object.keys(L.por_ano).slice(-1)[0]}), somando ${brl(L.valor_total)} (valor contratado, ou estimado quando não houver).</p>
+    <h3>Por ano</h3>${bars(Object.entries(L.por_ano).map(([a, x]) => ({ label: a, value: x.valor, note: `${fmt(x.n)} processos` })), { format: (x) => brl(x) })}
+    <h3>Por órgão</h3>${bars(Object.entries(L.por_orgao).map(([k, x]) => ({ label: k, value: x })), { format: (x) => brl(x) })}
+    <h3>Por modalidade</h3>${bars(Object.entries(L.por_modalidade).map(([k, x]) => ({ label: k, value: x })), { format: (x) => fmt(x) })}
+    <h3>Maiores processos</h3><ul class="plain">${L.maiores.slice(0, 15).map((x) => `<li><b>${x.valor != null ? brl(x.valor) : "–"}</b> · ${esc(x.ano)} · <span class="muted small">${esc(x.orgao)}${x.vencedor ? ` · ${esc(x.vencedor)}` : ""}${x.bairro ? ` · ${esc(x.bairro)}` : ""}</span><br><span class="small">${esc(x.objeto)}</span></li>`).join("")}</ul>
+    ${L.descartados.length ? `<p class="muted small">Valores implausíveis excluídos das somas (erro de cadastro ou receita de concessão): ${L.descartados.map((d) => `${esc(d.objeto.slice(0, 80))}… (${brl(d.valor_informado)})`).join("; ")}.</p>` : ""}
+    <p class="muted small">Só ${fmt(L.localizadas)} objetos citam um bairro identificável.</p>`;
 }
