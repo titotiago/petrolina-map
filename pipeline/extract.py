@@ -53,6 +53,10 @@ JOBS = [
     ("consulta_cand_2016.zip", r"_PE\.csv$", "cand_2016.csv", MATCH),
     ("ibge_setores_demografia.zip", r"\.csv$", "censo_demografia.csv", SETOR),
     ("ibge_setores_alfabetizacao.zip", r"\.csv$", "censo_alfabetizacao.csv", SETOR),
+    ("ibge_setores_renda.zip", r"\.csv$", "censo_renda.csv", SETOR),
+    ("ibge_setores_entorno_domicilios.zip", r"\.csv$", "censo_entorno_dom.csv", SETOR),
+    ("ibge_setores_entorno_moradores.zip", r"\.csv$", "censo_entorno_mor.csv", SETOR),
+    ("ibge_setores_dom2.zip", r"\.csv$", "censo_dom2.csv", SETOR),
 ]
 
 

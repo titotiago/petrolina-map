@@ -441,7 +441,9 @@ def regions_summary(ctx, cands) -> dict:
         pop = float(ss.v0001.sum())
         d["censo"] = {"populacao": int(pop), "domicilios": int(ss.v0007.sum()), "pop_10_19": int(ss.pop_10_14.sum() + ss.pop_15_19.sum()),
                       "novos_eleitores_2028_est": int(ss.pop_10_14.sum() + 0.4 * ss.pop_15_19.sum()),
-                      "taxa_alfab": r(ss.alfab15.sum() / max(ss.pop15.sum(), 1)), "eleitores_por_hab": r(e / max(pop, 1), 3)}
+                      "taxa_alfab": r(ss.alfab15.sum() / max(ss.pop15.sum(), 1)), "eleitores_por_hab": r(e / max(pop, 1), 3),
+                      "renda_media": r(float((ss.renda_media * ss.responsaveis).sum() / max(ss.responsaveis[ss.renda_media.notna()].sum(), 1)), 0),
+                      "infra": r(float((ss.infra * ss.dom_entorno).sum() / ss.dom_entorno[ss.infra.notna()].sum()), 3) if ss.infra.notna().any() else None}
         pf = ctx.perfil.reindex(ids).fillna(0).sum()
         d["perfil"] = {k: int(v) for k, v in pf.items()}
         out[rg] = d

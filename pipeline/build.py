@@ -15,6 +15,7 @@ import spatial  # noqa: E402
 import more  # noqa: E402
 import perfil_disputa  # noqa: E402
 import eleicoes_extra as ex  # noqa: E402
+import osm  # noqa: E402
 from common import OUT, SEATS, r  # noqa: E402
 
 YEARS = [2016, 2020, 2022, 2024, 2026]
@@ -160,6 +161,9 @@ def main():
     for v in bench.values():
         v.setdefault("2016", 0)
     ex.add_insights(ctx, cand_out, ideo, dep22, hist16, ren, bench16, regions_out, add)
+    osm_per, osm_points = osm.facilities(base)
+    osm_reg = osm.summary(base, osm_per)
+    osm.add_insights(base, osm_per, osm_reg, cand_out, add)
     ctx._overlap = pairs
     pdisp = perfil_disputa.analyse(ctx, cand_out, pairs["ids"])
     perfil_disputa.insights(pdisp, add)
@@ -183,16 +187,22 @@ def main():
     dump("insights.json", insights)
     dump("geografia.json", {"lisa": lisas, "dominios": dom, "segmentos": segs})
     dump("perfil_disputa.json", pdisp)
+    dump("osm.json", {"categorias": osm.CATEGORIES, "pontos": osm_points, "por_regiao": osm_reg,
+                      "por_local": {i: {k: (r(v, 2) if isinstance(v, float) else int(v)) for k, v in row.items()} for i, row in osm_per.iterrows()}})
     dump("extras.json", {"heranca": heirs, "projecao": proj, "bancadas": bench, "abstencao": absd, "ideologia": ideo, "renovacao": ren})
     el = base.set_index("id").eleitores
     catch["eleitores"] = catch.id.map(el).values
     catch["eleitor_adulto"] = catch.eleitor_adulto.map(lambda x: r(x, 3))
     catch["area_km2"] = catch.area_km2.map(lambda x: r(x, 2))
-    dump("areas.geojson", geojson(catch, ["id", "area_km2", "pop", "pop15", "pop_10_14", "eleitores", "eleitor_adulto"], simplify=20))
+    catch["renda_media"] = catch.renda_media.map(lambda x: r(x, 0))
+    catch["infra"] = catch.infra.map(lambda x: r(x, 3))
+    dump("areas.geojson", geojson(catch, ["id", "area_km2", "pop", "pop15", "pop_10_14", "eleitores", "eleitor_adulto", "renda_media", "infra"], simplify=20))
     setores_props = ["CD_SETOR", "SITUACAO", "NM_BAIRRO", "NM_DIST", "v0001", "v0007", "densidade", "taxa_alfab",
-                     "pct_60m", "pop_10_14", "pop_15_19", "local_id", "regiao"]
+                     "pct_60m", "pop_10_14", "pop_15_19", "renda_media", "renda_mediana", "infra", "pavimentacao", "iluminacao",
+                     "calcada", "onibus", "local_id", "regiao"]
     st = setores.copy()
-    for c in ["densidade", "taxa_alfab", "pct_60m"]:
+    st = st.drop_duplicates("CD_SETOR")
+    for c in ["densidade", "taxa_alfab", "pct_60m", "renda_media", "renda_mediana", "infra", "pavimentacao", "iluminacao", "calcada", "onibus"]:
         st[c] = st[c].map(lambda x: r(x, 4))
     dump("setores.geojson", geojson(st, setores_props, simplify=15))
     dump("bairros.geojson", geojson(bairros, ["NM_BAIRRO", "v0001"], simplify=10))

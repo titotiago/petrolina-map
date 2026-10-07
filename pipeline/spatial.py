@@ -37,9 +37,17 @@ def catchments(base: pd.DataFrame, municipio: gpd.GeoDataFrame, setores: gpd.Geo
     g = gpd.GeoDataFrame({"id": base.id.values}, geometry=geoms, crs=METRIC)
     g["area_km2"] = g.area / 1e6
     # census attached through tract -> nearest place (same rule as the Voronoi)
-    agg = setores.groupby("local_id").agg(pop=("v0001", "sum"), pop15=("pop15", "sum"), alfab15=("alfab15", "sum"),
-                                          pop_10_14=("pop_10_14", "sum"), pop_15_19=("pop_15_19", "sum"), dom=("v0007", "sum"))
-    g = g.merge(agg, left_on="id", right_index=True, how="left").fillna(0)
+    st = setores.drop_duplicates("CD_SETOR").assign(
+        renda_x=lambda d: d.renda_media * d.responsaveis, resp_r=lambda d: d.responsaveis.where(d.renda_media.notna()),
+        infra_x=lambda d: d.infra * d.dom_entorno, dom_i=lambda d: d.dom_entorno.where(d.infra.notna()))
+    agg = st.groupby("local_id").agg(pop=("v0001", "sum"), pop15=("pop15", "sum"), alfab15=("alfab15", "sum"),
+                                     pop_10_14=("pop_10_14", "sum"), pop_15_19=("pop_15_19", "sum"), dom=("v0007", "sum"),
+                                     renda_x=("renda_x", "sum"), resp_r=("resp_r", "sum"), infra_x=("infra_x", "sum"), dom_i=("dom_i", "sum"))
+    agg["renda_media"] = agg.renda_x / agg.resp_r.replace(0, np.nan)
+    agg["infra"] = agg.infra_x / agg.dom_i.replace(0, np.nan)
+    agg = agg.drop(columns=["renda_x", "resp_r", "infra_x", "dom_i"])
+    g = g.merge(agg, left_on="id", right_index=True, how="left")
+    g[["pop", "pop15", "alfab15", "pop_10_14", "pop_15_19", "dom"]] = g[["pop", "pop15", "alfab15", "pop_10_14", "pop_15_19", "dom"]].fillna(0)
     # neighbourhood-smoothed voters per adult (self + 6 nearest places)
     lat, lon, el = base.lat.values, base.lon.values, base.eleitores.values
     p15 = g.pop15.values

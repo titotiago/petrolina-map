@@ -6,7 +6,8 @@ import requests
 
 RAW = Path(__file__).resolve().parent.parent / "data" / "raw"
 TSE = "https://cdn.tse.jus.br/estatistica/sead/odsele"
-IBGE = "https://ftp.ibge.gov.br/Censos/Censo_Demografico_2022/Agregados_por_Setores_Censitarios"
+IBGE_ROOT = "https://ftp.ibge.gov.br/Censos/Censo_Demografico_2022"
+IBGE = f"{IBGE_ROOT}/Agregados_por_Setores_Censitarios"
 
 SOURCES = {
     # 2024 municipal
@@ -50,6 +51,11 @@ SOURCES = {
     "ibge_setores_demografia.zip": f"{IBGE}/Agregados_por_Setor_csv/Agregados_por_setores_demografia_BR.zip",
     "ibge_setores_alfabetizacao.zip": f"{IBGE}/Agregados_por_Setor_csv/Agregados_por_setores_alfabetizacao_BR.zip",
     "ibge_setores_basico.zip": f"{IBGE}/Agregados_por_Setor_csv/Agregados_por_setores_basico_BR_20260520.zip",
+    "ibge_setores_renda.zip": f"{IBGE_ROOT}/Agregados_por_Setores_Censitarios_Rendimento_do_Responsavel/Agregados_por_setores_renda_responsavel_BR_20260508_csv.zip",
+    "ibge_setores_entorno_domicilios.zip": f"{IBGE_ROOT}/Agregados_por_Setores_Censitarios_Caracteristicas_urbanisticas_do_entorno_dos_domicilios/Agregados_por_Setor_csv/Agregados_por_setores_entorno_domic%c3%adlios_BR.zip",
+    "ibge_setores_entorno_moradores.zip": f"{IBGE_ROOT}/Agregados_por_Setores_Censitarios_Caracteristicas_urbanisticas_do_entorno_dos_domicilios/Agregados_por_Setor_csv/Agregados_por_setores_entorno_moradores_BR.zip",
+    "ibge_setores_basico_completo.zip": f"{IBGE}/Agregados_por_Setor_csv/Agregados_por_setores_basico_BR_20260520.zip",
+    "ibge_setores_dom2.zip": f"{IBGE}/Agregados_por_Setor_csv/Agregados_por_setores_caracteristicas_domicilio2_BR_20250417.zip",
     "ibge_dicionario_setores.xlsx": f"{IBGE}/dicionario_de_dados_agregados_por_setores_censitarios_20260520.xlsx",
 }
 

@@ -176,7 +176,23 @@ def census(p: pd.DataFrame) -> gpd.GeoDataFrame:
     a = pd.DataFrame({"CD_SETOR": alf.CD_SETOR})
     a["pop15"] = alf[[f"V00{i}" for i in range(644, 657)]].fillna(0).sum(axis=1)
     a["alfab15"] = alf[[f"V00{i}" for i in range(748, 761)]].fillna(0).sum(axis=1)
-    s = s.merge(d, on="CD_SETOR", how="left").merge(a, on="CD_SETOR", how="left")
+    # Renda do responsável (IBGE, 2026 release): V06001 responsáveis, V06004 média, V06006 mediana (R$ de 2022)
+    rd = pd.read_csv(RAW.parent / "interim" / "censo_renda.csv", sep=";", dtype=str)
+    rd = rd.rename(columns={rd.columns[0]: "CD_SETOR"})
+    for c in rd.columns[1:]:
+        rd[c] = pd.to_numeric(rd[c].str.replace(",", "."), errors="coerce")
+    rd = rd.rename(columns={"V06001": "responsaveis", "V06004": "renda_media", "V06006": "renda_mediana"})[["CD_SETOR", "responsaveis", "renda_media", "renda_mediana"]]
+    # Entorno dos domicílios (sample of sectors): share of households on paved / lit streets etc.
+    en = pd.read_csv(RAW.parent / "interim" / "censo_entorno_dom.csv", sep=";", dtype=str)
+    en = en.rename(columns={en.columns[0]: "CD_SETOR"})
+    for c in en.columns[1:]:
+        en[c] = pd.to_numeric(en[c], errors="coerce")
+    tot = en.V05000.replace(0, np.nan)
+    e = pd.DataFrame({"CD_SETOR": en.CD_SETOR, "dom_entorno": en.V05000,
+                      "pavimentacao": en.V05006 / tot, "iluminacao": en.V05012 / tot, "bueiro": en.V05009 / tot,
+                      "calcada": en.V05021 / tot, "onibus": en.V05015 / tot, "arborizacao": 1 - en.V05030 / tot})
+    e["infra"] = e[["pavimentacao", "iluminacao", "bueiro", "calcada"]].mean(axis=1)
+    s = s.merge(d, on="CD_SETOR", how="left").merge(a, on="CD_SETOR", how="left").merge(rd, on="CD_SETOR", how="left").merge(e, on="CD_SETOR", how="left")
     for c in ["v0001", "v0002", "v0007", "AREA_KM2"]:
         s[c] = pd.to_numeric(s[c], errors="coerce")
     s["densidade"] = s.v0001 / s.AREA_KM2.replace(0, np.nan)
