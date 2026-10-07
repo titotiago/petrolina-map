@@ -58,6 +58,8 @@ export class ElectionMap {
     m.addSource("places", { type: "geojson", data: empty });
     m.addSource("overlay", { type: "geojson", data: empty });
     m.addSource("lasso", { type: "geojson", data: empty });
+    m.addSource("pois", { type: "geojson", data: empty });
+    m.addSource("route", { type: "geojson", data: empty });
     m.addLayer({ id: "areas-fill", type: "fill", source: "areas", paint: {
       "fill-color": ["get", "color"],
       "fill-opacity": ["case", ["boolean", ["feature-state", "hover"], false], 0.92, ["get", "fop"]] } });
@@ -69,6 +71,11 @@ export class ElectionMap {
     m.addLayer({ id: "distritos-line", type: "line", source: "distritos", paint: { "line-color": dk ? "#9aa3af" : "#475569", "line-width": 1, "line-dasharray": [3, 2], "line-opacity": 0.55 } });
     m.addLayer({ id: "overlay-fill", type: "fill", source: "overlay", filter: ["==", ["geometry-type"], "Polygon"], paint: { "fill-color": ["get", "color"], "fill-opacity": 0.06 } });
     m.addLayer({ id: "overlay-line", type: "line", source: "overlay", paint: { "line-color": ["get", "color"], "line-width": 1.6, "line-dasharray": [2, 1.2] } });
+    m.addLayer({ id: "route-line", type: "line", source: "route", filter: ["==", ["geometry-type"], "LineString"],
+      paint: { "line-color": ["get", "color"], "line-width": 3, "line-opacity": 0.85 }, layout: { "line-cap": "round", "line-join": "round" } });
+    m.addLayer({ id: "pois", type: "circle", source: "pois", paint: {
+      "circle-color": ["get", "color"], "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 2.5, 14, 5.5],
+      "circle-stroke-color": surface, "circle-stroke-width": 1 } });
     m.addLayer({ id: "places", type: "circle", source: "places", paint: {
       "circle-color": ["get", "color"], "circle-radius": ["get", "radius"], "circle-opacity": ["get", "opacity"],
       "circle-stroke-color": ["coalesce", ["get", "stroke"], surface], "circle-stroke-width": ["case", ["has", "stroke"], 2.5, 1.2],
@@ -76,6 +83,11 @@ export class ElectionMap {
     m.addLayer({ id: "places-label", type: "symbol", source: "places", filter: ["has", "label"], minzoom: 11.5,
       layout: { "text-field": ["get", "label"], "text-size": 11, "text-offset": [0, 1.1], "text-anchor": "top", "text-font": ["Open Sans Semibold"], "text-max-width": 9 },
       paint: { "text-color": ink, "text-halo-color": surface, "text-halo-width": 1.6 } });
+    m.addLayer({ id: "route-stops", type: "circle", source: "route", filter: ["==", ["geometry-type"], "Point"],
+      paint: { "circle-color": ["get", "color"], "circle-radius": 9, "circle-stroke-color": surface, "circle-stroke-width": 2 } });
+    m.addLayer({ id: "route-num", type: "symbol", source: "route", filter: ["==", ["geometry-type"], "Point"],
+      layout: { "text-field": ["get", "n"], "text-size": 10, "text-font": ["Open Sans Semibold"], "text-allow-overlap": true },
+      paint: { "text-color": "#ffffff" } });
     m.addLayer({ id: "lasso-fill", type: "fill", source: "lasso", paint: { "fill-color": "#2a78d6", "fill-opacity": 0.12 } });
     m.addLayer({ id: "lasso-line", type: "line", source: "lasso", paint: { "line-color": "#2a78d6", "line-width": 2 } });
 
@@ -121,6 +133,21 @@ export class ElectionMap {
       e.preventDefault();
       this.finishLasso();
     });
+  }
+
+  /** Facility points (category colour), cleared with []. */
+  setPois(points: { lat: number; lon: number; color: string; name: string }[]) {
+    const fc: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: points.map((p) => ({ type: "Feature", geometry: { type: "Point", coordinates: [p.lon, p.lat] }, properties: { color: p.color, tip: p.name } })) };
+    this.whenReady().then(() => (this.map.getSource("pois") as GeoJSONSource).setData(fc));
+  }
+  /** Routes: one polyline per day + numbered stops. */
+  setRoute(days: { color: string; stops: { lat: number; lon: number; n: number }[] }[]) {
+    const features: GeoJSON.Feature[] = [];
+    for (const d of days) {
+      if (d.stops.length > 1) features.push({ type: "Feature", geometry: { type: "LineString", coordinates: d.stops.map((s) => [s.lon, s.lat]) }, properties: { color: d.color } });
+      for (const s of d.stops) features.push({ type: "Feature", geometry: { type: "Point", coordinates: [s.lon, s.lat] }, properties: { color: d.color, n: String(s.n) } });
+    }
+    this.whenReady().then(() => (this.map.getSource("route") as GeoJSONSource).setData({ type: "FeatureCollection", features }));
   }
 
   onPlaceClick(cb: (id: string) => void) { this.clickCb = cb; }

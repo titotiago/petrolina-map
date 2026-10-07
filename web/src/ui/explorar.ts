@@ -36,6 +36,10 @@ const SMETRICS: [string, string, (p: Record<string, number>) => number, (x: numb
   ["v0001", "População", (p) => p.v0001, (x) => fmt(x)],
   ["pop_10_14", "Pessoas 10–14 anos (novos eleitores 2028)", (p) => p.pop_10_14, (x) => fmt(x)],
   ["taxa_alfab", "Alfabetização 15+", (p) => p.taxa_alfab, (x) => pct(x)],
+  ["renda_media", "Renda média do responsável (R$)", (p) => p.renda_media, (x) => `R$ ${fmt(x)}`],
+  ["infra", "Infraestrutura urbana (entorno)", (p) => p.infra, (x) => pct(x, 0)],
+  ["pavimentacao", "Ruas pavimentadas", (p) => p.pavimentacao, (x) => pct(x, 0)],
+  ["onibus", "Ponto de ônibus na quadra", (p) => p.onibus, (x) => pct(x, 0)],
   ["pct_60m", "% com 60+ anos", (p) => p.pct_60m, (x) => pct(x)],
 ];
 

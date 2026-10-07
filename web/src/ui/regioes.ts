@@ -169,6 +169,7 @@ function renderRegion(app: App, name: string) {
       { label: "População", value: fmt(r.censo.populacao), sub: `${fmt(r.censo.domicilios)} domicílios` },
       { label: "Novos eleitores 2028", value: `~${fmt(r.censo.novos_eleitores_2028_est)}`, sub: `${fmt(r.censo.pop_10_19)} pessoas com 10–19 anos` },
       { label: "Alfabetização 15+", value: pct(r.censo.taxa_alfab), sub: `${r.censo.eleitores_por_hab.toFixed(2).replace(".", ",")} eleitores/hab.` },
+      { label: "Renda média", value: `R$ ${fmt(r.censo.renda_media)}`, sub: r.censo.infra != null ? `infraestrutura urbana ${pct(r.censo.infra, 0)}` : "área rural" },
     ])}
     <h3>Perfil do eleitorado</h3>${perfilBlock(r.perfil, city)}
     <h3>Locais de votação</h3><ul class="plain cols">${ids.map((id) => `<li><a data-href="place=${id}">${esc(db.byId.get(id)!.nome)}</a> <span class="muted">${fmt(db.byId.get(id)!.eleitores)}</span></li>`).join("")}</ul>`;

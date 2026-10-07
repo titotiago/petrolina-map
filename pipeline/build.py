@@ -202,7 +202,8 @@ def main():
     dump("transferencias.json", transf)
     dump("osm.json", {"categorias": osm.CATEGORIES, "pontos": osm_points, "por_regiao": osm_reg,
                       "por_local": {i: {k: (r(v, 2) if isinstance(v, float) else int(v)) for k, v in row.items()} for i, row in osm_per.iterrows()}})
-    dump("extras.json", {"heranca": heirs, "projecao": proj, "bancadas": bench, "abstencao": absd, "ideologia": ideo, "renovacao": ren})
+    dump("extras.json", {"heranca": heirs, "projecao": proj, "bancadas": bench, "abstencao": absd, "ideologia": ideo, "renovacao": ren,
+                              "volatilidade": more.volatility(cand_out)})
     el = base.set_index("id").eleitores
     catch["eleitores"] = catch.id.map(el).values
     catch["eleitor_adulto"] = catch.eleitor_adulto.map(lambda x: r(x, 3))

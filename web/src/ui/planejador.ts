@@ -1,13 +1,14 @@
 // 2028 planner: (1) candidate-level slate simulator — move candidates between parties, add hypothetical
 // candidates, scale for electorate growth; (2) vote plan — where a candidate can find the votes to reach a target.
 import type { App } from "../app";
-import { esc, fmt, pct, valid, type Vereador } from "../data";
+import { esc, fmt, pct, valid, type Place, type Vereador } from "../data";
 import { OTHER, partyColor, seq, SEQ_STOPS } from "../colors";
 import type { PlaceStyle } from "../map";
 import { avatar, badge, bindHrefs, chip, legendRamp, tiles } from "./common";
+import { renderCenarios } from "./cenarios";
 
 // ---------------------------------------------------------------- allocation (mirrors pipeline/results.allocate)
-interface Cand { id: string; nome: string; partido: string; votos: number }
+export interface Cand { id: string; nome: string; partido: string; votos: number }
 interface Eleito { id: string; partido: string; votos: number; via: string }
 
 export function allocate(cands: Cand[], legenda: Record<string, number>, seats: number) {
@@ -46,19 +47,20 @@ export function allocate(cands: Cand[], legenda: Record<string, number>, seats: 
 }
 
 // ---------------------------------------------------------------- planner state (per session, in memory)
-const moves = new Map<string, string>();
-const extra: Cand[] = [];
+export const moves = new Map<string, string>();
+export const extra: Cand[] = [];
 let scale = false;
 let seatsN = 23;
 let filter = "";
 
 export function renderPlanejador(app: App) {
-  const modo = app.state.pmodo === "plano" ? "plano" : "chapa";
+  const modo = app.state.pmodo === "plano" || app.state.pmodo === "cenarios" ? app.state.pmodo : "chapa";
   app.map.setPoly("none");
   app.map.setOverlay([]);
-  const head = `<div class="ph"><div class="eyebrow">Planejamento 2028</div><h2>${modo === "chapa" ? "Simulador de chapas" : "Plano de votos"}</h2></div>
-    <div class="seg"><button class="${modo === "chapa" ? "on" : ""}" data-href="pmodo=chapa">Simulador de chapas</button><button class="${modo === "plano" ? "on" : ""}" data-href="pmodo=plano">Plano de votos por local</button></div>`;
-  if (modo === "chapa") chapa(app, head); else plano(app, head);
+  const titles: Record<string, string> = { chapa: "Simulador de chapas", cenarios: "Cenários e probabilidades", plano: "Plano de votos" };
+  const head = `<div class="ph"><div class="eyebrow">Planejamento 2028</div><h2>${titles[modo]}</h2></div>
+    <div class="seg">${[["chapa", "Simulador de chapas"], ["cenarios", "Cenários + Monte Carlo"], ["plano", "Plano de votos e rotas"]].map(([k, l]) => `<button class="${modo === k ? "on" : ""}" data-href="pmodo=${k}">${l}</button>`).join("")}</div>`;
+  if (modo === "chapa") chapa(app, head); else if (modo === "cenarios") renderCenarios(app, head); else plano(app, head);
 }
 
 // ---------------------------------------------------------------- slate simulator
@@ -159,11 +161,17 @@ function plano(app: App, head: string) {
     const g = (proj.por_local[p.id] ?? a24.get(p.id)!) / (a24.get(p.id) || 1);
     return { id: p.id, p, val, val28: val * g, s, votos: vv[v.numero] ?? 0 };
   });
-  // ceiling = 80th percentile of the candidate's share among the 6 nearest places (reachable with a comparable effort)
+  // ceilings: (a) 80th percentile of the candidate's share among the 6 nearest places; (b) the share the
+  // place profile predicts (expected-vs-actual model, only when it is reliable for this candidate)
+  const mod = db.modelo.candidatos[v.numero];
+  const modOk = !!mod && mod.r2_oos >= 0.25;
+  const metodo = state.metodo === "modelo" && modOk ? "modelo" : state.metodo === "comb" && modOk ? "comb" : "viz";
   for (const r of rows) {
     const nb = rows.map((o) => ({ o, d: Math.hypot(o.p.lat - r.p.lat, (o.p.lon - r.p.lon) * Math.cos((r.p.lat * Math.PI) / 180)) }))
       .filter((x) => x.o.id !== r.id).sort((a, b) => a.d - b.d).slice(0, 6).map((x) => x.o.s).sort((a, b) => a - b);
-    (r as typeof r & { teto: number }).teto = Math.max(r.s, nb[Math.floor(nb.length * 0.8)] ?? 0);
+    const tViz = Math.max(r.s, nb[Math.floor(nb.length * 0.8)] ?? 0);
+    const tMod = mod && r.val ? Math.max(r.s, (mod.esperado[r.id] ?? 0) / r.val) : r.s;
+    (r as typeof r & { teto: number }).teto = metodo === "viz" ? tViz : metodo === "modelo" ? tMod : Math.max(tViz, tMod);
   }
   const R = rows as (typeof rows[number] & { teto: number; ganho: number })[];
   R.forEach((r) => (r.ganho = (r.teto - r.s) * r.val28));
@@ -182,7 +190,9 @@ function plano(app: App, head: string) {
   app.legend(legendRamp(SEQ_STOPS, "menor", "maior", `Locais prioritários para ${v.nome} — número = ordem de prioridade`));
   const ok = acc >= gap;
   app.panel.innerHTML = `${head}
-    <p class="lead">Onde o candidato pode buscar os votos que faltam para a meta. Para cada local, o <b>teto</b> é a participação que ele já alcança nos locais vizinhos (percentil 80 dos 6 mais próximos); o <b>potencial</b> é (teto − participação atual) × votos válidos projetados para 2028.</p>
+    <p class="lead">Onde o candidato pode buscar os votos que faltam para a meta. Para cada local, o <b>teto</b> é a participação alcançável e o <b>potencial</b> é (teto − participação atual) × votos válidos projetados para 2028.</p>
+    <div class="seg small">${[["viz", "Vizinhança"], ["modelo", "Modelo de perfil"], ["comb", "Combinado"]].map(([k, l]) => `<button class="${metodo === k ? "on" : ""}" ${k !== "viz" && !modOk ? "disabled title=\"O perfil não explica o voto deste candidato\"" : ""} data-href="metodo=${k}">${l}</button>`).join("")}</div>
+    <p class="muted small">${metodo === "viz" ? "Teto = o que o candidato já tem nos 6 locais mais próximos (percentil 80)." : metodo === "modelo" ? `Teto = o que o perfil do local prevê para o candidato (modelo esperado × real, R² fora da área ${mod!.r2_oos.toFixed(2).replace(".", ",")}).` : "Teto = o maior entre vizinhança e modelo de perfil."}${!modOk ? ` O modelo de perfil não está disponível para este candidato: o perfil dos locais não explica onde ele tem voto${mod ? ` (R² ${mod.r2_oos.toFixed(2).replace(".", ",")})` : ""} — o voto é de rede pessoal.` : ""}</p>
     <div class="form">
       <label class="wide">Candidato <input id="alvo" list="vlist" value="${esc(v.nome)} (${v.numero})"><datalist id="vlist">${db.vereadores.filter((x) => x.votos >= 300).map((x) => `<option value="${esc(x.nome)} (${x.numero})">`).join("")}</datalist></label>
       <label>Meta de votos <input id="meta" type="number" step="100" value="${meta}"></label>
@@ -198,11 +208,82 @@ function plano(app: App, head: string) {
     <div class="table-wrap"><table class="tbl compact"><thead><tr><th>#</th><th>Local</th><th class="num">Hoje</th><th class="num">Teto</th><th class="num">+ Votos</th><th class="num">Acum.</th></tr></thead><tbody>
       ${(() => { let c = 0; return plan.map((r, i) => { c += r.ganho; const tag = lisa[r.id] === "LH" ? ` <span class="badge qp">brecha</span>` : lisa[r.id] === "HH" ? ` <span class="badge">reduto</span>` : ""; return `<tr class="clickable" data-href="place=${r.id}"><td>${i + 1}</td><td>${esc(r.p.nome)}${tag}<div class="muted small">${esc(r.p.regiao)}</div></td><td class="num">${pct(r.s)}</td><td class="num">${pct(r.teto)}</td><td class="num">+${fmt(r.ganho)}</td><td class="num">${fmt(baseline + c)}</td></tr>`; }).join(""); })()}
     </tbody></table></div>
-    <p class="muted small">"Brecha" = local fraco dentro de área de força estatística (Moran local) — normalmente o voto mais barato. A estimativa supõe que o candidato consiga em cada local o desempenho que já tem na vizinhança; não considera a reação dos concorrentes.</p>`;
+    <p class="muted small">"Brecha" = local fraco dentro de área de força estatística (Moran local) — normalmente o voto mais barato. A estimativa não considera a reação dos concorrentes.</p>
+    ${routeSection(plan.map((r) => r.p))}`;
   const P = app.panel;
   bindHrefs(P, (h) => app.go(Object.fromEntries(new URLSearchParams(h))));
   P.querySelector<HTMLInputElement>("#alvo")!.addEventListener("change", (e) => { const m = /\((\d+)\)\s*$/.exec((e.target as HTMLInputElement).value); if (m) app.go({ alvo: m[1], meta: undefined }); });
   P.querySelector<HTMLInputElement>("#meta")!.addEventListener("change", (e) => app.go({ meta: (e.target as HTMLInputElement).value }));
   app.map.fitPlaces(plan.length ? plan.map((r) => r.id) : ids, 13);
+  bindRoute(app, plan.map((r) => r.p), () => plano(app, head));
+}
+
+// ---------------------------------------------------------------- field routes (roadmap 16)
+let rotaDias = 3, rotaPorDia = 6, rotaOn = false;
+const DAY_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#7b2c8f", "#c0392b", "#00808c", "#ef7d00"];
+
+function km(a: Place, b: Place) {
+  const R = 6371, dLat = ((b.lat - a.lat) * Math.PI) / 180, dLon = ((b.lon - a.lon) * Math.PI) / 180;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos((a.lat * Math.PI) / 180) * Math.cos((b.lat * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+function tourLen(t: Place[]) { let s = 0; for (let i = 1; i < t.length; i++) s += km(t[i - 1], t[i]); return s; }
+function twoOpt(t: Place[]) {
+  let improved = true;
+  while (improved) {
+    improved = false;
+    for (let i = 1; i < t.length - 1; i++) for (let k = i + 1; k < t.length; k++) {
+      const nt = [...t.slice(0, i), ...t.slice(i, k + 1).reverse(), ...t.slice(k + 1)];
+      if (tourLen(nt) + 1e-9 < tourLen(t)) { t = nt; improved = true; }
+    }
+  }
+  return t;
+}
+/** Split the priority places into days (angular sweep around the centroid keeps each day compact), then order each day. */
+export function planRoutes(places: Place[], days: number, perDay: number) {
+  const pts = places.slice(0, days * perDay);
+  if (!pts.length) return [];
+  const cy = pts.reduce((s, p) => s + p.lat, 0) / pts.length, cx = pts.reduce((s, p) => s + p.lon, 0) / pts.length;
+  const sorted = [...pts].sort((a, b) => Math.atan2(a.lat - cy, a.lon - cx) - Math.atan2(b.lat - cy, b.lon - cx));
+  const out: Place[][] = [];
+  const n = Math.ceil(sorted.length / perDay);
+  for (let d = 0; d < n; d++) {
+    const day = sorted.slice(d * perDay, (d + 1) * perDay);
+    // nearest neighbour from the stop closest to the city centre, then 2-opt
+    const start = day.reduce((b, p) => (Math.hypot(p.lat + 9.39, p.lon + 40.5) < Math.hypot(b.lat + 9.39, b.lon + 40.5) ? p : b), day[0]);
+    const tour = [start];
+    const rest = day.filter((p) => p !== start);
+    while (rest.length) { const last = tour[tour.length - 1]; rest.sort((a, b) => km(last, a) - km(last, b)); tour.push(rest.shift()!); }
+    out.push(twoOpt(tour));
+  }
+  return out;
+}
+
+function routeSection(places: Place[]) {
+  if (!places.length) return "";
+  const routes = rotaOn ? planRoutes(places, rotaDias, rotaPorDia) : [];
+  return `<h3>Rotas de campo</h3>
+    <div class="row"><label>Dias <input id="rdias" type="number" min="1" max="15" value="${rotaDias}" style="width:70px"></label>
+      <label>Visitas por dia <input id="rpdia" type="number" min="2" max="15" value="${rotaPorDia}" style="width:70px"></label>
+      <button class="btn small ${rotaOn ? "" : "primary"}" id="rgo">${rotaOn ? "Ocultar rotas" : "Gerar rotas"}</button></div>
+    ${routes.map((day, i) => {
+      const dist = tourLen(day) * 1.35;  // straight line → street distance factor
+      const url = "https://www.google.com/maps/dir/" + day.map((p) => `${p.lat},${p.lon}`).join("/");
+      return `<div class="seg-card"><h4><span class="sw" style="background:${DAY_COLORS[i % DAY_COLORS.length]}"></span>Dia ${i + 1} · ${day.length} locais · ~${dist.toFixed(1).replace(".", ",")} km</h4>
+        <ol class="plain">${day.map((p) => `<li>${esc(p.nome)} <span class="muted small">${esc(p.bairro_tse)}</span></li>`).join("")}</ol>
+        <a href="${url}" target="_blank" rel="noopener">Abrir no Google Maps →</a></div>`;
+    }).join("")}
+    ${rotaOn ? `<p class="muted small">Ordem otimizada (vizinho mais próximo + 2-opt). Distância estimada em linha reta × 1,35. Para trajeto exato, abra no Google Maps.</p>` : ""}`;
+}
+function bindRoute(app: App, places: Place[], rerender: () => void) {
+  const P = app.panel;
+  P.querySelector<HTMLInputElement>("#rdias")?.addEventListener("change", (e) => { rotaDias = Math.max(1, +(e.target as HTMLInputElement).value || 3); rerender(); });
+  P.querySelector<HTMLInputElement>("#rpdia")?.addEventListener("change", (e) => { rotaPorDia = Math.max(2, +(e.target as HTMLInputElement).value || 6); rerender(); });
+  P.querySelector("#rgo")?.addEventListener("click", () => { rotaOn = !rotaOn; rerender(); });
+  if (rotaOn) {
+    const routes = planRoutes(places, rotaDias, rotaPorDia);
+    let n = 0;
+    app.map.setRoute(routes.map((day, i) => ({ color: DAY_COLORS[i % DAY_COLORS.length], stops: day.map((p) => ({ lat: p.lat, lon: p.lon, n: ++n })) })));
+  } else app.map.setRoute([]);
 }
 

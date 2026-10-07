@@ -323,3 +323,8 @@ ul.cols { columns: 2; column-gap: 16px; font-size: 0.82rem; }
 .spark { width: 240px; max-width: 100%; height: auto; display: block; }
 .spark text { font-size: 9px; fill: var(--text-secondary); font-variant-numeric: tabular-nums; }
 .spark text.lbl { fill: var(--text-muted); }
+label.chk { flex-direction: row; align-items: center; gap: 6px; text-transform: none; letter-spacing: 0; font-size: 0.84rem; color: var(--text-secondary); }
+
+.sankey { width: 100%; height: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-2); }
+.sankey text { font-size: 10.5px; fill: var(--text-primary); }
+.seg button:disabled { opacity: 0.4; cursor: not-allowed; }

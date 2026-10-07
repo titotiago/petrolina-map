@@ -13,6 +13,8 @@ const MODES: [string, string, string][] = [
   ["segmentos", "Perfis", "Áreas com comportamento eleitoral parecido"],
   ["registro", "Registro", "Eleitores por adulto (Censo 2022)"],
   ["polarizacao", "Polarização", "Lula × Bolsonaro por área (2022) e variação até 2026"],
+  ["censo", "Renda e infraestrutura", "Renda do responsável e infraestrutura urbana (Censo 2022)"],
+  ["equipamentos", "Equipamentos", "UBS e hospitais (CNES/SUS), escolas e praças (OpenStreetMap)"],
 ];
 
 const LISA_CLASSES: [string, string, string][] = [
@@ -31,7 +33,7 @@ export function renderGeografia(app: App) {
     <div class="ph"><div class="eyebrow">Geografia do voto</div><h2>${esc(MODES.find(([k]) => k === modo)![1])}</h2>
     <p class="lead">${esc(MODES.find(([k]) => k === modo)![2])}. Cada polígono é a <b>área de influência</b> de um local de votação (Voronoi recortado no município, até 8 km).</p></div>
     <div class="seg">${MODES.map(([k, l]) => `<button class="${k === modo ? "on" : ""}" data-href="gmodo=${k}">${l}</button>`).join("")}</div>`;
-  const body = modo === "dominio" ? dominio(app) : modo === "conflito" ? conflito(app) : modo === "lisa" ? lisa(app) : modo === "segmentos" ? segmentos(app) : modo === "polarizacao" ? polarizacao(app) : registro(app);
+  const body = modo === "dominio" ? dominio(app) : modo === "conflito" ? conflito(app) : modo === "lisa" ? lisa(app) : modo === "segmentos" ? segmentos(app) : modo === "polarizacao" ? polarizacao(app) : modo === "censo" ? censo(app) : modo === "equipamentos" ? equipamentos(app) : registro(app);
   app.panel.innerHTML = head + body;
   bindHrefs(app.panel, (h) => app.go(Object.fromEntries(new URLSearchParams(h))));
   app.panel.querySelector<HTMLSelectElement>("#lisa-cand")?.addEventListener("change", (e) => app.go({ num: (e.target as HTMLSelectElement).value }));
@@ -209,4 +211,54 @@ function mix(hex: string, k: number) {
   const base = document.documentElement.dataset.theme === "dark" || (!document.documentElement.dataset.theme && matchMedia("(prefers-color-scheme: dark)").matches) ? [56, 56, 53] : [226, 225, 220];
   const c = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v, i) => Math.round(base[i] + (v - base[i]) * Math.max(0, Math.min(1, k))));
   return `rgb(${c.join(",")})`;
+}
+
+// ------------------------------------------------------------------ income & urban infrastructure
+function censo(app: App) {
+  const { db, state } = app;
+  const v = state.seg === "infra" ? "infra" : "renda";
+  const props = new Map(db.geo.areas.features.map((f) => [String((f.properties as Record<string, unknown>).id), f.properties as Record<string, number>]));
+  const vals = [...props.values()].map((p) => p[v === "renda" ? "renda_media" : "infra"]).filter((x) => x != null && isFinite(x));
+  const lo = Math.min(...vals), hi = v === "renda" ? Math.min(Math.max(...vals), 6000) : 1;
+  const st = new Map<string, PlaceStyle>();
+  for (const [id, p] of props) {
+    const x = p[v === "renda" ? "renda_media" : "infra"];
+    if (x == null) continue;
+    st.set(id, { color: seq(Math.max(0, Math.min(1, (x - lo) / (hi - lo)))), opacity: 0.82 });
+  }
+  const brl = (x: number) => `R$ ${fmt(x)}`;
+  app.map.setPlaces(st, (id) => { const p = props.get(id)!; return `${tipBase(app, id)}<br>Renda média do responsável: ${p.renda_media != null ? brl(p.renda_media) : "–"}<br>Infraestrutura urbana: ${p.infra != null ? pct(p.infra, 0) : "– (setor rural)"}`; });
+  app.legend(legendRamp(SEQ_STOPS, v === "renda" ? brl(lo) : "0%", v === "renda" ? brl(hi) + "+" : "100%", v === "renda" ? "Renda média mensal do responsável (Censo 2022)" : "Infraestrutura urbana: pavimentação, iluminação, bueiro e calçada"));
+  const rs = Object.entries(db.regioes).sort((a, b) => b[1].censo.renda_media - a[1].censo.renda_media);
+  return `<div class="seg small"><button class="${v === "renda" ? "on" : ""}" data-href="seg=">Renda</button><button class="${v === "infra" ? "on" : ""}" data-href="seg=infra">Infraestrutura</button></div>
+    <p class="small">Censo 2022 (IBGE): rendimento nominal médio mensal do responsável pelo domicílio e características do entorno (só setores urbanos). Médias por área de influência, ponderadas por domicílio.</p>
+    <h3>Por região</h3>
+    <div class="table-wrap"><table class="tbl compact"><thead><tr><th>Região</th><th class="num">Renda média</th><th class="num">Infraestrutura</th><th class="num">Simão 2024</th><th class="num">Lula 2022</th></tr></thead><tbody>
+    ${rs.map(([k, r]) => `<tr class="clickable" data-href="tab=regioes&region=${encodeURIComponent(k)}"><td>${esc(k)}</td><td class="num">${brl(r.censo.renda_media)}</td><td class="num">${r.censo.infra != null ? pct(r.censo.infra, 0) : "–"}</td><td class="num">${pct(r.prefeito_2024["44"] ?? 0, 0)}</td><td class="num">${r.lula_2022_2t != null ? pct(r.lula_2022_2t, 0) : "–"}</td></tr>`).join("")}
+    </tbody></table></div>`;
+}
+
+// ------------------------------------------------------------------ public facilities
+const EQ_COLOR: Record<string, string> = { ubs: "#c0392b", hospital: "#7b2c8f", saude_outros: "#e08a3a", escola: "#2a78d6", lazer: "#1baf7a" };
+function equipamentos(app: App) {
+  const { db, state } = app;
+  const E = db.equip;
+  const cat = state.seg && E.categorias[state.seg] ? state.seg : "ubs";
+  app.map.setPois(E.pontos.filter((p) => p.c === cat || (cat === "ubs" && p.c === "hospital")).map((p) => ({ lat: p.lat, lon: p.lon, color: EQ_COLOR[p.c], name: `<b>${esc(p.n || E.categorias[p.c])}</b><br>${esc(E.categorias[p.c])}` })));
+  const st = new Map<string, PlaceStyle>();
+  const distKey = cat === "escola" ? "dist_escola_km" : "dist_ubs_km";
+  for (const p of db.locais) {
+    const d = E.por_local[p.id]?.[distKey];
+    if (d != null && (cat === "ubs" || cat === "escola")) st.set(p.id, { color: div(Math.max(-1, Math.min(1, (1.5 - d) / 3))), opacity: 0.55 });
+  }
+  app.map.setPlaces(st, (id) => { const q = E.por_local[id] ?? {}; return `${tipBase(app, id)}<br>UBS mais próxima: ${q.dist_ubs_km != null ? q.dist_ubs_km.toFixed(1).replace(".", ",") + " km" : "–"}<br>Escola mais próxima: ${q.dist_escola_km != null ? q.dist_escola_km.toFixed(1).replace(".", ",") + " km" : "–"}`; });
+  app.legend(legendCats([{ label: E.categorias[cat], color: EQ_COLOR[cat] }, ...(cat === "ubs" ? [{ label: E.categorias.hospital, color: EQ_COLOR.hospital }] : []),
+    ...(cat === "ubs" || cat === "escola" ? [{ label: "Área perto (<1,5 km)", color: div(0.6) }, { label: "Área longe (>3 km)", color: div(-0.6) }] : [])], "Equipamentos públicos"));
+  const regs = Object.entries(E.por_regiao).sort((a, b) => db.regioes[b[0]].eleitores - db.regioes[a[0]].eleitores);
+  return `<div class="seg small">${Object.entries(E.categorias).filter(([k]) => k !== "hospital").map(([k, l]) => `<button class="${k === cat ? "on" : ""}" data-href="seg=${k}">${esc(l.split(" (")[0])}</button>`).join("")}</div>
+    <p class="small">Saúde: cadastro oficial do SUS (CNES/DataSUS), unidades com atendimento SUS e coordenadas. Escolas e praças: OpenStreetMap (cobertura incompleta). Assistência social e templos não têm fonte confiável com coordenadas e não foram incluídos.</p>
+    <h3>Por região (por 10 mil eleitores)</h3>
+    <div class="table-wrap"><table class="tbl compact"><thead><tr><th>Região</th><th class="num">UBS</th><th class="num">Hospitais</th><th class="num">Escolas</th><th class="num">Praças</th></tr></thead><tbody>
+    ${regs.map(([k, r]) => { const x = r.por_10mil_eleitores as Record<string, number>; return `<tr><td>${esc(k)}</td><td class="num">${x.ubs.toFixed(1).replace(".", ",")}</td><td class="num">${x.hospital.toFixed(1).replace(".", ",")}</td><td class="num">${x.escola.toFixed(1).replace(".", ",")}</td><td class="num">${x.lazer.toFixed(1).replace(".", ",")}</td></tr>`; }).join("")}
+    </tbody></table></div>`;
 }

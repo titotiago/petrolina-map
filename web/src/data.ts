@@ -41,6 +41,7 @@ export interface Vereador {
   apelo_pp?: Record<string, number>;
   alinhamento_lula?: number;
   afinidade_2022?: Record<string, { numero: string; r: number; votos_petrolina: number }[]>;
+  modelo?: { r2_oos: number; esperado_total: number; confiavel: boolean; potencial: number };
   hist_2016?: { cargo: string; partido: string; situacao: string; numero: string; votos: number | null };
 }
 export interface LisaPack { moran: number; classe: Record<string, string>; redutos: string[] }
@@ -71,7 +72,8 @@ export interface Regiao {
   vereadores_base_nomes: string[]; receita_vereadores_base: number;
   r2026_governador: { numero: string; pct: number }[]; r2026_senador: { numero: string; pct: number }[];
   r2026_dep_federal: { numero: string; pct: number }[]; r2026_dep_estadual: { numero: string; pct: number }[];
-  censo: { populacao: number; domicilios: number; pop_10_19: number; novos_eleitores_2028_est: number; taxa_alfab: number; eleitores_por_hab: number };
+  censo: { populacao: number; domicilios: number; pop_10_19: number; novos_eleitores_2028_est: number; taxa_alfab: number; eleitores_por_hab: number; renda_media: number; infra: number | null };
+  presidente_2022_2t?: Record<string, number>; presidente_2026?: Record<string, number>; lula_2022_2t?: number; lula_2026?: number;
   perfil: Record<string, number>;
 }
 export interface Sobreposicao { ids: string[]; nomes: string[]; eleitos: boolean[]; matriz: number[][]; pares: { a: string; b: string; a_nome: string; b_nome: string; sobreposicao: number; ambos_eleitos: boolean }[] }
@@ -83,6 +85,7 @@ export interface Extras {
   bancadas: Record<string, { "2020": number; "2024": number }>;
   abstencao: Record<string, number>;
   ideologia: { lula_2022_2t: Record<string, number>; lula_2026_1t: Record<string, number>; por_candidato: Record<string, number>; simao_x_lula: number | null };
+  volatilidade: { a: number; b: number; n: number; mediana_log: number };
   renovacao: { reeleitos_2016_2020: number; reeleitos_2020_2024: number; eleitos: Record<string, number>; tres_mandatos: string[] };
 }
 
@@ -94,6 +97,10 @@ export interface PerfilDisputa {
   matriz_perfil: number[][]; matriz_terr_secao: number[][]; pares: PerfilPar[];
 }
 
+export interface Modelo { features: Record<string, string>; candidatos: Record<string, { nome: string; r2_oos: number; coef: Record<string, number>; esperado: Record<string, number>; residuo: Record<string, number>; esperado_total: number; real_total: number }> }
+export interface Fluxo { titulo: string; de: string[]; para: string[]; locais: number; r2: number; T: number[][]; lo: number[][]; hi: number[][]; eleitores_origem: Record<string, number>; fluxos: number[][] }
+export interface Equip { categorias: Record<string, string>; pontos: { c: string; n: string; lat: number; lon: number }[]; por_regiao: Record<string, Record<string, number | Record<string, number>>>; por_local: Record<string, Record<string, number>> }
+
 export interface DB {
   locais: Place[]; byId: Map<string, Place>;
   votos: Record<string, Record<string, Record<string, Record<string, number>>>>; // year -> cargo -> place -> numero -> votes
@@ -104,6 +111,7 @@ export interface DB {
   geografia: Geografia;
   extras: Extras;
   perfilDisputa: PerfilDisputa;
+  modelo: Modelo; transferencias: Record<string, Fluxo>; equip: Equip;
   geo: { areas: GeoJSON.FeatureCollection; regioes: GeoJSON.FeatureCollection; bairros: GeoJSON.FeatureCollection; setores: GeoJSON.FeatureCollection; distritos: GeoJSON.FeatureCollection };
   info: { gerado_em: string; fontes: string[]; notas: string[] };
 }
@@ -111,16 +119,16 @@ export interface DB {
 const j = (f: string) => fetch(`${import.meta.env.BASE_URL}data/${f}`).then((r) => r.json());
 
 export async function load(): Promise<DB> {
-  const [locais, res, cand, cadeiras, regioes, insights, sobreposicao, gReg, gBai, gSet, gDis, info, geografia, gAreas, extras, perfilDisputa] = await Promise.all([
+  const [locais, res, cand, cadeiras, regioes, insights, sobreposicao, gReg, gBai, gSet, gDis, info, geografia, gAreas, extras, perfilDisputa, modelo, transferencias, equip] = await Promise.all([
     j("locais.json"), j("resultados.json"), j("candidatos.json"), j("cadeiras.json"), j("regioes.json"), j("insights.json"),
     j("sobreposicao.json"), j("regioes.geojson"), j("bairros.geojson"), j("setores.geojson"), j("distritos.geojson"), j("meta.json"),
-    j("geografia.json"), j("areas.geojson"), j("extras.json"), j("perfil_disputa.json"),
+    j("geografia.json"), j("areas.geojson"), j("extras.json"), j("perfil_disputa.json"), j("modelo.json"), j("transferencias.json"), j("osm.json"),
   ]);
   const vereadores: Vereador[] = cand.vereadores_2024;
   return {
     locais, byId: new Map(locais.map((p: Place) => [p.id, p])), votos: res.votos, detalhe: res.detalhe,
     vereadores, vByNum: new Map(vereadores.map((v) => [v.numero, v])), meta: cand.outros, cadeiras, regioes, insights, sobreposicao,
-    geografia, extras, perfilDisputa, geo: { areas: gAreas, regioes: gReg, bairros: gBai, setores: gSet, distritos: gDis }, info,
+    geografia, extras, perfilDisputa, modelo, transferencias, equip, geo: { areas: gAreas, regioes: gReg, bairros: gBai, setores: gSet, distritos: gDis }, info,
   };
 }
 

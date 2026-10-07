@@ -141,3 +141,15 @@ def add_insights(ctx, cands, coat, heirs, proj, bench, absd, seats, add):
         + " e menor onde há mais " + " e ".join(k for k, v in top if v < -0.1)
         + ". Mobilização para o comparecimento rende mais nas áreas do primeiro grupo.",
         0.66, {"tab": "mapa", "metrica": "abstencao"})
+
+
+def volatility(cands) -> dict:
+    """Spread of log(votes 2024 / votes 2020) for councillor candidates who ran both times, as a function of size:
+    sigma(v) = a + b / sqrt(v / 1000). Used by the Monte Carlo seat simulation (roadmap item 10)."""
+    pairs = [(h["votos"], c["votos"]) for c in cands if (h := c.get("hist_2020")) and h.get("cargo") == "Vereador"
+             and h.get("votos") and h["votos"] >= 200 and c["votos"] >= 100]
+    v20 = np.array([a for a, _ in pairs], float)
+    lr = np.log(np.array([b for _, b in pairs], float) / v20)
+    A = np.column_stack([np.ones(len(v20)), 1 / np.sqrt(v20 / 1000)])
+    coef, *_ = np.linalg.lstsq(A, np.abs(lr - np.median(lr)) * 1.2533, rcond=None)  # E|x|·√(π/2) = σ for a normal
+    return {"a": r(coef[0], 3), "b": r(coef[1], 3), "n": len(pairs), "mediana_log": r(float(np.median(lr)), 3)}

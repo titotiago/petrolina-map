@@ -2,7 +2,7 @@
 import type { DB } from "./data";
 import type { ElectionMap } from "./map";
 
-export type Tab = "vereadores" | "planejador" | "comparar" | "geografia" | "regioes" | "insights" | "mapa" | "cadeiras" | "sobreposicao" | "candidatos" | "sobre";
+export type Tab = "vereadores" | "transferencias" | "planejador" | "comparar" | "geografia" | "regioes" | "insights" | "mapa" | "cadeiras" | "sobreposicao" | "candidatos" | "sobre";
 export interface State {
   tab: Tab;
   cand?: string;      // vereador number (2024)
@@ -29,6 +29,8 @@ export interface State {
   alvo?: string;      // planner: candidate for vote plan
   meta?: string;      // planner: target votes
   cmp?: string;       // comparator: "a,b,c"
+  metodo?: string;
+  fluxo?: string;     // transfers view    // vote plan: viz | modelo | comb
 }
 
 export interface App {

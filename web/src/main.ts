@@ -11,6 +11,7 @@ import { renderExplorar } from "./ui/explorar";
 import { renderGeografia } from "./ui/geografia";
 import { renderPlanejador } from "./ui/planejador";
 import { renderComparar } from "./ui/comparar";
+import { renderTransferencias } from "./ui/transferencias";
 import { areaReport, renderPlace } from "./ui/place";
 import { bindHrefs } from "./ui/common";
 
@@ -26,13 +27,14 @@ const ICON: Record<string, string> = {
   mapa: I('<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>'),
   sobre: I('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>'),
   planejador: I('<path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4"/><circle cx="12" cy="12" r="4"/>'),
+  transferencias: I('<path d="M4 7h11l-3-3M20 17H9l3 3"/>'),
   comparar: I('<path d="M8 3v18M16 3v18M3 8h5M16 16h5"/><rect x="3" y="3" width="18" height="18" rx="2"/>'),
 };
 const NAV: [string, [Tab, string, string][]][] = [
   ["Câmara 2028", [["vereadores", "Vereadores", "Os 23 eleitos, suplentes e nomes a observar"], ["sobreposicao", "Sobreposição", "Quem disputa o mesmo eleitorado"], ["comparar", "Comparar candidatos", "Até 3 candidatos lado a lado"], ["cadeiras", "Cadeiras 2024", "Quociente, sobras e simulação partidária"]]],
   ["Estratégia 2028", [["planejador", "Planejador 2028", "Simulador de chapas e plano de votos por local"]]],
   ["Território", [["geografia", "Geografia do voto", "Domínio, conflito, redutos e perfis de território"], ["regioes", "Regiões", "Representação, desempenho e perfil por região"], ["mapa", "Explorar mapa", "Qualquer eleição, cargo e métrica"]]],
-  ["Síntese", [["insights", "Achados", "Principais conclusões para 2028"], ["sobre", "Fontes & método", "Dados, definições e limitações"]]],
+  ["Síntese", [["insights", "Achados", "Principais conclusões para 2028"], ["transferencias", "Transferência de votos", "Para onde foi o voto entre eleições (estimativa)"], ["sobre", "Fontes & método", "Dados, definições e limitações"]]],
 ];
 const TAB_INFO = new Map(NAV.flatMap(([, items]) => items.map(([k, l, d]) => [k, { label: l, desc: d }] as const)));
 
@@ -138,6 +140,8 @@ load().then((db) => {
     const s = app.state;
     document.querySelectorAll<HTMLElement>("#tabs [data-tab]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === s.tab)));
     map.vis = s.vis ?? (s.tab === "mapa" && s.layer === "setores" ? "pontos" : "areas");
+    map.setPois([]);
+    map.setRoute([]);
     document.querySelectorAll<HTMLElement>("#vis [data-v]").forEach((b) => b.classList.toggle("on", b.dataset.v === map.vis));
     const info = TAB_INFO.get(s.tab);
     document.querySelector("#ttl")!.textContent = info?.label ?? "";
@@ -153,7 +157,7 @@ load().then((db) => {
       bindHrefs(panel, (h) => app.go(Object.fromEntries(new URLSearchParams(h))));
     } else {
       ({ vereadores: renderVereadores, regioes: renderRegioes, insights: renderInsights, cadeiras: renderCadeiras, sobreposicao: renderSobreposicao,
-        mapa: renderExplorar, candidatos: renderVereadores, sobre: renderSobre, geografia: renderGeografia, planejador: renderPlanejador, comparar: renderComparar })[s.tab](app);
+        mapa: renderExplorar, candidatos: renderVereadores, sobre: renderSobre, geografia: renderGeografia, planejador: renderPlanejador, comparar: renderComparar, transferencias: renderTransferencias })[s.tab](app);
     }
     if (s.place && db.byId.has(s.place)) {
       panel.innerHTML = renderPlace(app, s.place);
