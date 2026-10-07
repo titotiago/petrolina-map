@@ -16,6 +16,8 @@ import more  # noqa: E402
 import perfil_disputa  # noqa: E402
 import eleicoes_extra as ex  # noqa: E402
 import osm  # noqa: E402
+import modelo  # noqa: E402
+import ei  # noqa: E402
 from common import OUT, SEATS, r  # noqa: E402
 
 YEARS = [2016, 2020, 2022, 2024, 2026]
@@ -164,6 +166,15 @@ def main():
     osm_per, osm_points = osm.facilities(base)
     osm_reg = osm.summary(base, osm_per)
     osm.add_insights(base, osm_per, osm_reg, cand_out, add)
+    mod = modelo.run(ctx, cand_out, catch, ideo)
+    modelo.add_insights(mod, cand_out, base, add)
+    transf = ei.run(ctx)
+    ei.add_insights(transf, add)
+    for c in cand_out:
+        m = mod["candidatos"].get(c["numero"])
+        if m:
+            c["modelo"] = {"r2_oos": m["r2_oos"], "esperado_total": m["esperado_total"], "confiavel": m["r2_oos"] >= modelo.R2_OK,
+                           "potencial": int(sum(max(0, -v) for v in m["residuo"].values()))}
     ctx._overlap = pairs
     pdisp = perfil_disputa.analyse(ctx, cand_out, pairs["ids"])
     perfil_disputa.insights(pdisp, add)
@@ -187,6 +198,8 @@ def main():
     dump("insights.json", insights)
     dump("geografia.json", {"lisa": lisas, "dominios": dom, "segmentos": segs})
     dump("perfil_disputa.json", pdisp)
+    dump("modelo.json", mod)
+    dump("transferencias.json", transf)
     dump("osm.json", {"categorias": osm.CATEGORIES, "pontos": osm_points, "por_regiao": osm_reg,
                       "por_local": {i: {k: (r(v, 2) if isinstance(v, float) else int(v)) for k, v in row.items()} for i, row in osm_per.iterrows()}})
     dump("extras.json", {"heranca": heirs, "projecao": proj, "bancadas": bench, "abstencao": absd, "ideologia": ideo, "renovacao": ren})
