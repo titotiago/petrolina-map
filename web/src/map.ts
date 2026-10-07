@@ -74,7 +74,7 @@ export class ElectionMap {
     m.addLayer({ id: "route-line", type: "line", source: "route", filter: ["==", ["geometry-type"], "LineString"],
       paint: { "line-color": ["get", "color"], "line-width": 3, "line-opacity": 0.85 }, layout: { "line-cap": "round", "line-join": "round" } });
     m.addLayer({ id: "pois", type: "circle", source: "pois", paint: {
-      "circle-color": ["get", "color"], "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 2.5, 14, 5.5],
+      "circle-color": ["get", "color"], "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, ["coalesce", ["get", "r"], 2.5], 14, ["coalesce", ["get", "r"], 5.5]], "circle-opacity": ["coalesce", ["get", "op"], 1],
       "circle-stroke-color": surface, "circle-stroke-width": 1 } });
     m.addLayer({ id: "places", type: "circle", source: "places", paint: {
       "circle-color": ["get", "color"], "circle-radius": ["get", "radius"], "circle-opacity": ["get", "opacity"],
@@ -97,10 +97,13 @@ export class ElectionMap {
       this.hovered = id;
       if (id) m.setFeatureState({ source: "areas", id }, { hover: true });
     };
+    const poiAt = (pt: maplibregl.PointLike) => m.queryRenderedFeatures(pt, { layers: ["pois"] })[0]?.properties as Record<string, string> | undefined;
     const placeAt = (pt: maplibregl.PointLike) =>
       (m.queryRenderedFeatures(pt, { layers: ["places"] })[0] ?? (this.vis === "areas" ? m.queryRenderedFeatures(pt, { layers: ["areas-fill"] })[0] : undefined))?.properties as Record<string, string> | undefined;
     m.on("mousemove", (e) => {
       if (this.lassoPts) return;
+      const poi = poiAt(e.point);
+      if (poi?.tip) { m.getCanvas().style.cursor = "pointer"; tip.setLngLat(e.lngLat).setHTML(poi.tip).addTo(m); return; }
       const p = placeAt(e.point);
       if (p?.tip) {
         m.getCanvas().style.cursor = "pointer";
@@ -136,8 +139,8 @@ export class ElectionMap {
   }
 
   /** Facility points (category colour), cleared with []. */
-  setPois(points: { lat: number; lon: number; color: string; name: string }[]) {
-    const fc: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: points.map((p) => ({ type: "Feature", geometry: { type: "Point", coordinates: [p.lon, p.lat] }, properties: { color: p.color, tip: p.name } })) };
+  setPois(points: { lat: number; lon: number; color: string; name: string; r?: number }[]) {
+    const fc: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: points.map((p) => ({ type: "Feature", geometry: { type: "Point", coordinates: [p.lon, p.lat] }, properties: { color: p.color, tip: p.name, ...(p.r ? { r: p.r, op: 0.7 } : {}) } })) };
     this.whenReady().then(() => (this.map.getSource("pois") as GeoJSONSource).setData(fc));
   }
   /** Routes: one polyline per day + numbered stops. */

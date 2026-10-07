@@ -265,6 +265,27 @@ Integra-se ao **Planejador 2028**, na nova aba "Cenários". Os cenários podem s
 
 ---
 
+## Status (07/10/2026)
+
+| # | Feature | Status |
+|---|---|---|
+| 1 | Testes de dados e de interface no CI | ✅ pytest + Playwright bloqueiam o deploy |
+| 3 | Eleição 2022 | ✅ 1º e 2º turnos, polarização, puxadores 2022 |
+| 4 | Presidente 2026 + 2º turno | ✅ presidente 1º turno; 2º turno entra ao rodar o pipeline quando o TSE publicar |
+| 5 | Eleição 2016 | ✅ trajetória e renovação |
+| 6 | Linha do tempo | ✅ no explorador (animação + variação entre eleições) |
+| 7 | Esperado × real | ✅ validação por blocos espaciais; usado só quando R² ≥ 0,25 |
+| 8 | Transferência de votos | ✅ 4 fluxos com intervalos de 90% |
+| 9 | Cenários 2028 | ✅ |
+| 10 | Monte Carlo | ✅ |
+| 11 | Renda por setor | ✅ renda do responsável + entorno urbano |
+| 12 | Equipamentos públicos | ✅ CNES (saúde, oficial) + OSM (escolas/praças); assistência social e templos sem fonte confiável |
+| 13 | Investimentos | ✅ TCE-PE (1,5% do gasto cita bairro), emendas, transferências especiais, obras federais, licitações |
+| 14 | Atuação parlamentar | ✅ indicações e requerimentos 2021–2026; lista de votações nominais; presença não coletada (PDF escaneado) |
+| 16 | Rotas de campo | ✅ |
+| 17 | PWA | ✅ instalável, offline, "Onde estou" |
+| 2, 15, 18 | Atualização automática, dossiê PDF, área da equipe | ⏸ adiados |
+
 ## Decisões tomadas (07/10/2026)
 
 | Tema | Decisão |

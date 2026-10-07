@@ -53,6 +53,18 @@ def emendas() -> pd.DataFrame:
     return df
 
 
+def emendas_favorecidos() -> pd.DataFrame:
+    """Amendment money actually received by entities based in Petrolina (municipality, funds, Univasf, IF Sertão,
+    hospitals, contractors) — complements the application-locality view above."""
+    with zipfile.ZipFile(RAW / "EmendasParlamentares.zip") as zf:
+        df = pd.read_csv(io.TextIOWrapper(zf.open("EmendasParlamentares_PorFavorecido.csv"), encoding="latin-1"), sep=";", dtype=str)
+    df = df[(df["UF Favorecido"] == "PE") & (df["Município Favorecido"] == "PETROLINA")].copy()
+    df["Valor Recebido"] = pd.to_numeric(df["Valor Recebido"].str.replace(".", "", regex=False).str.replace(",", ".", regex=False), errors="coerce").fillna(0)
+    df["ano"] = df["Ano/Mês"].str[:4]
+    df.to_csv(OUT / "emendas_favorecidos_petrolina.csv.gz", index=False, compression="gzip")
+    return df
+
+
 def transferencias_especiais() -> pd.DataFrame:
     r = _get("https://api.transferegov.gestao.gov.br/transferenciasespeciais/plano_acao_especial",
              {"cnpj_beneficiario_plano_acao": f"eq.{CNPJ}", "limit": 1000})
@@ -125,6 +137,8 @@ if __name__ == "__main__":
     OUT.mkdir(parents=True, exist_ok=True)
     e = emendas()
     print(f"emendas: {len(e)} linhas, R$ {e['Valor Empenhado'].sum():,.0f} empenhados, R$ {e['Valor Pago'].sum():,.0f} pagos")
+    f = emendas_favorecidos()
+    print(f"emendas recebidas por entidades de Petrolina: {len(f)} pagamentos, R$ {f['Valor Recebido'].sum():,.0f}")
     t = transferencias_especiais()
     print(f"transferências especiais: {len(t)}")
     lic = licitacoes()

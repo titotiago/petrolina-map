@@ -12,6 +12,7 @@ const ROUTES = [
   "tab=regioes&region=__bairro:Centro", "tab=mapa", "tab=mapa&year=2016&cargo=prefeito", "tab=mapa&year=2022-2&cargo=presidente",
   "tab=mapa&year=2026&cargo=presidente&metric=delta_numero&num=13", "tab=mapa&layer=setores&smetric=renda_media",
   "tab=insights", "tab=transferencias", "tab=transferencias&fluxo=lula_prefeito", "tab=sobre", "place=83-1627",
+  "tab=mandatos", "tab=mandatos&mmodo=investimentos", "tab=mandatos&mmodo=emendas", "tab=mandatos&mmodo=obras", "tab=mandatos&cand=13123",
 ];
 
 test("all views render without errors", async ({ page }) => {

@@ -18,6 +18,7 @@ import eleicoes_extra as ex  # noqa: E402
 import osm  # noqa: E402
 import modelo  # noqa: E402
 import ei  # noqa: E402
+import mandatos  # noqa: E402
 from common import OUT, SEATS, r  # noqa: E402
 
 YEARS = [2016, 2020, 2022, 2024, 2026]
@@ -170,6 +171,16 @@ def main():
     modelo.add_insights(mod, cand_out, base, add)
     transf = ei.run(ctx)
     ei.add_insights(transf, add)
+    cam = mandatos.camara(cand_out, base)
+    inv = mandatos.investimentos(base, regions_out)
+    em = mandatos.emendas(ctx)
+    obras = mandatos.obras()
+    mandatos.add_insights(cam, inv, em, cand_out, regions_out, add)
+    if cam:
+        for c in cand_out:
+            m = cam["vereadores"].get(c["numero"])
+            if m:
+                c["mandato"] = {k: m[k] for k in ("total", "localizadas", "por_tipo", "por_ano", "pct_indicacoes_base", "pct_votos_base", "top_bairros")}
     for c in cand_out:
         m = mod["candidatos"].get(c["numero"])
         if m:
@@ -200,6 +211,7 @@ def main():
     dump("perfil_disputa.json", pdisp)
     dump("modelo.json", mod)
     dump("transferencias.json", transf)
+    dump("mandatos.json", {"camara": cam, "investimentos": inv, "emendas": em, "obras": obras})
     dump("osm.json", {"categorias": osm.CATEGORIES, "pontos": osm_points, "por_regiao": osm_reg,
                       "por_local": {i: {k: (r(v, 2) if isinstance(v, float) else int(v)) for k, v in row.items()} for i, row in osm_per.iterrows()}})
     dump("extras.json", {"heranca": heirs, "projecao": proj, "bancadas": bench, "abstencao": absd, "ideologia": ideo, "renovacao": ren,
@@ -226,8 +238,12 @@ def main():
     dump("meta.json", {
         "gerado_em": date.today().isoformat(), "assentos": SEATS,
         "fontes": [
-            "TSE Dados Abertos: votacao_secao, detalhe_votacao_secao, eleitorado_local_votacao, perfil_eleitor_secao, consulta_cand, consulta_coligacao, bem_candidato, prestacao_contas (2020, 2024, 2026)",
-            "IBGE Censo 2022: malha de setores/bairros/distritos com atributos; agregados por setor (demografia, alfabetização)",
+            "TSE Dados Abertos: votação por seção, detalhe por seção, eleitorado por local, perfil do eleitor por seção, candidatos, coligações, bens e prestação de contas (2016, 2020, 2022, 2024, 2026 — 1º e 2º turnos)",
+            "IBGE Censo 2022: malhas de setores/bairros/distritos; agregados por setor (demografia, alfabetização, renda do responsável, entorno dos domicílios)",
+            "CNES/DataSUS (estabelecimentos de saúde SUS com coordenadas) e OpenStreetMap (escolas, praças)",
+            "Câmara Municipal de Petrolina (petrolina.pe.leg.br): indicações, requerimentos e lista de votações nominais",
+            "TCE-PE Dados Abertos: despesas municipais (empenhos) da Prefeitura de Petrolina",
+            "Portal da Transparência (CGU): emendas parlamentares; Transferegov: transferências especiais; Obrasgov: obras federais",
         ],
         "notas": [
             "Unidade geográfica mínima: local de votação (agregação das seções).",

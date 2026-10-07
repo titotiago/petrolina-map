@@ -42,6 +42,7 @@ export interface Vereador {
   alinhamento_lula?: number;
   afinidade_2022?: Record<string, { numero: string; r: number; votos_petrolina: number }[]>;
   modelo?: { r2_oos: number; esperado_total: number; confiavel: boolean; potencial: number };
+  mandato?: { total: number; localizadas: number; por_tipo: Record<string, number>; por_ano: Record<string, number>; pct_indicacoes_base: number | null; pct_votos_base: number | null; top_bairros: { bairro: string; n: number }[] };
   hist_2016?: { cargo: string; partido: string; situacao: string; numero: string; votos: number | null };
 }
 export interface LisaPack { moran: number; classe: Record<string, string>; redutos: string[] }
@@ -101,6 +102,21 @@ export interface Modelo { features: Record<string, string>; candidatos: Record<s
 export interface Fluxo { titulo: string; de: string[]; para: string[]; locais: number; r2: number; T: number[][]; lo: number[][]; hi: number[][]; eleitores_origem: Record<string, number>; fluxos: number[][] }
 export interface Equip { categorias: Record<string, string>; pontos: { c: string; n: string; lat: number; lon: number }[]; por_regiao: Record<string, Record<string, number | Record<string, number>>>; por_local: Record<string, Record<string, number>> }
 
+export interface Mandatos {
+  camara: null | { total: number; anos: string[]; localizadas: number; votacoes_pdfs: number;
+    vereadores: Record<string, { nome: string; eleito: boolean; total: number; por_tipo: Record<string, number>; por_ano: Record<string, number>; localizadas: number;
+      por_regiao: Record<string, number>; top_bairros: { bairro: string; n: number }[]; pct_indicacoes_base: number | null; pct_votos_base: number | null;
+      exemplos: { data: string; tipo: string; ementa: string; pdf: string }[] }>;
+    bairros: { bairro: string; regiao: string; n: number; lat: number; lon: number }[]; por_vereador_bairro: Record<string, Record<string, number>> };
+  investimentos: null | { total_empenhado: number; localizado: number; n_empenhos: number; n_localizados: number; anos: string[];
+    regioes: Record<string, { total: number; investimento: number; por_eleitor: number; investimento_por_eleitor: number; por_ano: Record<string, number> }>;
+    top_bairros: { bairro: string; regiao: string; valor: number }[]; por_funcao: Record<string, number>;
+    maiores_investimentos: { data: string; bairro: string; regiao: string; valor: number; fornecedor: string; funcao: string; historico: string }[] };
+  emendas: null | { total_recebido: number; por_ano: Record<string, number>; autores: { autor: string; valor: number; votos_petrolina: Record<string, number> }[];
+    favorecidos: { nome: string; valor: number }[]; por_tipo: Record<string, number>; transferencias_especiais: Record<string, string | number>[]; aplicacao_local_por_funcao: Record<string, number> };
+  obras: { nome: string; situacao: string; especie: string; inicio: string; fim: string; lat: number | null; lon: number | null }[];
+}
+
 export interface DB {
   locais: Place[]; byId: Map<string, Place>;
   votos: Record<string, Record<string, Record<string, Record<string, number>>>>; // year -> cargo -> place -> numero -> votes
@@ -111,7 +127,7 @@ export interface DB {
   geografia: Geografia;
   extras: Extras;
   perfilDisputa: PerfilDisputa;
-  modelo: Modelo; transferencias: Record<string, Fluxo>; equip: Equip;
+  modelo: Modelo; transferencias: Record<string, Fluxo>; equip: Equip; mandatos: Mandatos;
   geo: { areas: GeoJSON.FeatureCollection; regioes: GeoJSON.FeatureCollection; bairros: GeoJSON.FeatureCollection; setores: GeoJSON.FeatureCollection; distritos: GeoJSON.FeatureCollection };
   info: { gerado_em: string; fontes: string[]; notas: string[] };
 }
@@ -119,16 +135,16 @@ export interface DB {
 const j = (f: string) => fetch(`${import.meta.env.BASE_URL}data/${f}`).then((r) => r.json());
 
 export async function load(): Promise<DB> {
-  const [locais, res, cand, cadeiras, regioes, insights, sobreposicao, gReg, gBai, gSet, gDis, info, geografia, gAreas, extras, perfilDisputa, modelo, transferencias, equip] = await Promise.all([
+  const [locais, res, cand, cadeiras, regioes, insights, sobreposicao, gReg, gBai, gSet, gDis, info, geografia, gAreas, extras, perfilDisputa, modelo, transferencias, equip, mandatos] = await Promise.all([
     j("locais.json"), j("resultados.json"), j("candidatos.json"), j("cadeiras.json"), j("regioes.json"), j("insights.json"),
     j("sobreposicao.json"), j("regioes.geojson"), j("bairros.geojson"), j("setores.geojson"), j("distritos.geojson"), j("meta.json"),
-    j("geografia.json"), j("areas.geojson"), j("extras.json"), j("perfil_disputa.json"), j("modelo.json"), j("transferencias.json"), j("osm.json"),
+    j("geografia.json"), j("areas.geojson"), j("extras.json"), j("perfil_disputa.json"), j("modelo.json"), j("transferencias.json"), j("osm.json"), j("mandatos.json"),
   ]);
   const vereadores: Vereador[] = cand.vereadores_2024;
   return {
     locais, byId: new Map(locais.map((p: Place) => [p.id, p])), votos: res.votos, detalhe: res.detalhe,
     vereadores, vByNum: new Map(vereadores.map((v) => [v.numero, v])), meta: cand.outros, cadeiras, regioes, insights, sobreposicao,
-    geografia, extras, perfilDisputa, modelo, transferencias, equip, geo: { areas: gAreas, regioes: gReg, bairros: gBai, setores: gSet, distritos: gDis }, info,
+    geografia, extras, perfilDisputa, modelo, transferencias, equip, mandatos, geo: { areas: gAreas, regioes: gReg, bairros: gBai, setores: gSet, distritos: gDis }, info,
   };
 }
 
