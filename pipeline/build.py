@@ -25,11 +25,24 @@ YEARS = [2016, 2020, 2022, 2024, 2026]
 ROUND2 = "2022-2"  # 2nd round of 2022 (president + governor)
 
 
+def _clean(o):
+    """NaN/inf are not valid JSON for browsers: replace them with null everywhere."""
+    if isinstance(o, float):
+        return None if (o != o or o in (float("inf"), float("-inf"))) else o
+    if isinstance(o, dict):
+        return {k: _clean(v) for k, v in o.items()}
+    if isinstance(o, (list, tuple)):
+        return [_clean(v) for v in o]
+    if isinstance(o, np.floating):
+        return _clean(float(o))
+    return o
+
+
 def dump(name, obj):
     OUT.mkdir(parents=True, exist_ok=True)
     path = OUT / name
     with open(path, "w", encoding="utf-8") as f:
-        json.dump(obj, f, ensure_ascii=False, separators=(",", ":"), default=_default)
+        json.dump(_clean(obj), f, ensure_ascii=False, separators=(",", ":"), default=_default, allow_nan=False)
     print(f"  {name}: {path.stat().st_size / 1024:.0f} KB")
 
 

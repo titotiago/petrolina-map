@@ -7,6 +7,7 @@ Inputs (collected once, static) in data/externos — see pipeline/externos/*.py:
   obras_federais_petrolina.csv, licitacoes_petrolina.csv                      (federal open data / Prefeitura)
 Each part is skipped gracefully if its file is missing.
 """
+import re
 import sys
 from pathlib import Path
 
@@ -26,22 +27,34 @@ def _read(name, **kw):
     return pd.read_csv(f, dtype=str, **kw) if f.exists() else None
 
 
+# names used at the Câmara that differ from the ballot name (documented, verified against the councillor list)
+ALIASES = {"AERO CRUZ": "AERO SIM", "PRESIDENTE AERO": "AERO SIM", "GILMAR SANTOS": "PROF GILMAR SANTOS", "MARIA ELENA DE ALENCAR": "MARIA ELENA",
+           "MARQUINHOS DO N4": "MARQUINHOS DO N QUATRO"}
+
+
 def match_author(autor: str, cands: list, by_tokens: dict) -> str | None:
-    """'Vereador Josivaldo Barros' → councillor number (2024 candidates), by urna name or full name tokens."""
-    a = norm(autor).replace("VEREADORA ", "").replace("VEREADOR ", "").replace("PRESIDENTE ", "").strip()
-    if not a:
+    """'Vereador Josivaldo Barros' → councillor number (2024 candidates). Tolerates OCR typos in PDFs
+    (fuzzy match on the compact name); joint authorships ('X e Y', 'todos os vereadores') stay unmatched."""
+    from rapidfuzz import fuzz, process
+    a = norm(autor)
+    for pre in ("VEREADORA ", "VEREADOR ", "VER ", "PRESIDENTE "):
+        if a.startswith(pre):
+            a = a[len(pre):]
+    a = a.strip()
+    if not a or " E " in f" {a} " and not a.startswith(("COSME E", "JOSE E")) or "TODOS" in a or "COMISSAO" in a or "MESA" in a or "BANCADA" in a:
         return None
+    a = ALIASES.get(a, a)
     if a in by_tokens:
         return by_tokens[a]
-    toks = set(a.split())
-    best, score = None, 0
+    choices = {}
     for c in cands:
         for name in (c["nome"], c["nome_completo"]):
-            nt = set(norm(name).split()) - {"DA", "DE", "DO", "DOS", "DAS", "E"}
-            s = len(toks & nt) / max(len(toks), 1)
-            if s > score and len(toks & nt) >= min(2, len(toks)):
-                best, score = c["numero"], s
-    return best if score >= 0.6 else None
+            choices[norm(name)] = c["numero"]
+    hit = process.extractOne(a, list(choices), scorer=fuzz.token_set_ratio, score_cutoff=88)
+    if hit:
+        return choices[hit[0]]
+    hit = process.extractOne(a.replace(" ", ""), {k: k.replace(" ", "") for k in choices}, scorer=fuzz.ratio, score_cutoff=86)
+    return choices[hit[2]] if hit else None
 
 
 def camara(cands, base) -> dict | None:
@@ -85,13 +98,46 @@ def camara(cands, base) -> dict | None:
         if xy is not None:
             bairros.append({"bairro": b, "regiao": rg, "n": int(k), "lat": r(xy.lat, 5), "lon": r(xy.lon, 5)})
     por_vereador_bairro = {n: g.groupby("bairro").size().astype(int).to_dict() for n, g in df[df.numero.notna() & df.bairro.notna()].groupby("numero")}
+    votos = roll_calls(cands, by_tokens)
+    for n, m in (votos or {}).get("por_vereador", {}).items():
+        out_v.setdefault(n, {"nome": names[n]["nome"], "eleito": n in el, "total": 0, "por_tipo": {}, "por_ano": {}, "localizadas": 0,
+                             "por_regiao": {}, "top_bairros": [], "pct_indicacoes_base": None, "pct_votos_base": None, "exemplos": []})["votacoes"] = m
     return {
+        "votacoes": {k: v for k, v in (votos or {}).items() if k != "por_vereador"},
         "total": int(len(df)), "anos": sorted(df.ano.dropna().unique().tolist()), "localizadas": int(df.regiao.notna().sum()),
         "autores_sem_match": sorted(a for a, n in authors.items() if n is None)[:40],
         "vereadores": out_v, "bairros": bairros, "por_vereador_bairro": por_vereador_bairro,
         "por_regiao_ano": {f"{rg}|{a}": int(k) for (rg, a), k in df[df.regiao.notna()].groupby(["regiao", "ano"]).size().items()},
         "votacoes_pdfs": int(len(_read("camara_votacoes_lista.csv"))) if _read("camara_votacoes_lista.csv") is not None else 0,
     }
+
+
+def roll_calls(cands, by_tokens) -> dict | None:
+    """Roll-call votes parsed from the Câmara PDFs: attendance, votes against, dissent from the majority."""
+    v = _read("camara_votacoes_nominais.csv")
+    if v is None or not len(v):
+        return None
+    compact = {norm(c["nome"]).replace(" ", ""): c["numero"] for c in cands}
+    compact.update({norm(c["nome_completo"]).replace(" ", ""): c["numero"] for c in cands})
+
+    def who(name):
+        k = norm(re.sub(r"\d+ª\s*Vota[çc][ãa]o", "", str(name))).replace(" ", "")
+        if k in compact:
+            return compact[k]
+        return match_author(name, cands, by_tokens)
+    v["numero"] = v.nome.map(who)
+    v = v[v.numero.notna()]
+    present = v.voto.isin(["favoravel", "contrario", "abstencao", "presidente"])
+    voting = v[v.voto.isin(["favoravel", "contrario"])]
+    maj = voting.groupby("pdf").voto.agg(lambda s: s.value_counts().idxmax())
+    voting = voting.assign(contra_maioria=voting.voto.values != voting.pdf.map(maj).values)
+    out = {}
+    for n, g in v.groupby("numero"):
+        gv = voting[voting.numero == n]
+        out[n] = {"sessoes": int(g.pdf.nunique()), "presenca": r(float(present[g.index].mean()), 3),
+                  "contrarios": int((gv.voto == "contrario").sum()), "contra_maioria": r(float(gv.contra_maioria.mean()), 3) if len(gv) else None,
+                  "ausencias_justificadas": int((g.voto == "justificada").sum())}
+    return {"n_votacoes": int(v.pdf.nunique()), "unanimes": int((voting.groupby("pdf").voto.nunique() == 1).sum()), "por_vereador": out}
 
 
 def investimentos(base, regions_out) -> dict | None:
@@ -195,6 +241,16 @@ def add_insights(cam, inv, em, cands, regions_out, add):
                 "Mais focados na própria base: " + ", ".join(f"{v['nome']} ({v['pct_indicacoes_base'] * 100:.0f}% das indicações × {v['pct_votos_base'] * 100:.0f}% dos votos)" for v in fo[::-1][:3])
                 + ". Mais voltados a outras áreas: " + ", ".join(f"{v['nome']} ({v['pct_indicacoes_base'] * 100:.0f}% × {v['pct_votos_base'] * 100:.0f}%)" for v in fo[:3]) + ".",
                 0.8, {"tab": "mandatos"})
+    if cam and cam.get("votacoes"):
+        VV = [(v["nome"], v["votacoes"]) for v in cam["vereadores"].values() if v.get("eleito") and v.get("votacoes") and v["votacoes"]["sessoes"] >= 10]
+        if VV:
+            pres = sorted(VV, key=lambda x: x[1]["presenca"])
+            dis = sorted([x for x in VV if x[1]["contra_maioria"] is not None], key=lambda x: -x[1]["contra_maioria"])
+            add("vereadores", "Presença e independência nas votações nominais",
+                f"{cam['votacoes']['n_votacoes']} votações nominais lidas dos PDFs da Câmara ({cam['votacoes']['unanimes']} unânimes entre os presentes). "
+                "Menor presença: " + ", ".join(f"{n} ({x['presenca'] * 100:.0f}%)" for n, x in pres[:3])
+                + ". Mais votos contra a maioria: " + ", ".join(f"{n} ({x['contra_maioria'] * 100:.0f}%)" for n, x in dis[:3] if x["contra_maioria"] > 0) + ".",
+                0.79, {"tab": "mandatos"})
     if inv:
         R = sorted(((k, v) for k, v in inv["regioes"].items() if v["total"] > 0), key=lambda kv: -kv[1]["por_eleitor"])
         add("regioes", "Gasto da prefeitura com bairro identificado, por região",

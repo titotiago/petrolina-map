@@ -10,8 +10,12 @@ import pytest
 D = Path(__file__).resolve().parents[2] / "web" / "public" / "data"
 
 
+def _reject(c):
+    raise ValueError(f"invalid JSON constant {c} (browsers reject NaN/Infinity)")
+
+
 def load(name):
-    return json.loads((D / name).read_text(encoding="utf-8"))
+    return json.loads((D / name).read_text(encoding="utf-8"), parse_constant=_reject)
 
 
 @pytest.fixture(scope="module")
@@ -105,3 +109,9 @@ def test_insights_are_well_formed():
     assert len(ins) >= 40
     for i in ins:
         assert i["titulo"] and i["texto"] and "nan" not in i["texto"].lower().split() and "None" not in i["texto"], i["titulo"]
+
+
+def test_every_file_is_strict_json():
+    for f in D.iterdir():
+        if f.suffix in (".json", ".geojson"):
+            load(f.name)

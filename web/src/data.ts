@@ -106,7 +106,9 @@ export interface Mandatos {
   camara: null | { total: number; anos: string[]; localizadas: number; votacoes_pdfs: number;
     vereadores: Record<string, { nome: string; eleito: boolean; total: number; por_tipo: Record<string, number>; por_ano: Record<string, number>; localizadas: number;
       por_regiao: Record<string, number>; top_bairros: { bairro: string; n: number }[]; pct_indicacoes_base: number | null; pct_votos_base: number | null;
-      exemplos: { data: string; tipo: string; ementa: string; pdf: string }[] }>;
+      exemplos: { data: string; tipo: string; ementa: string; pdf: string }[];
+      votacoes?: { sessoes: number; presenca: number; contrarios: number; contra_maioria: number | null; ausencias_justificadas: number } }>;
+    votacoes?: { n_votacoes: number; unanimes: number };
     bairros: { bairro: string; regiao: string; n: number; lat: number; lon: number }[]; por_vereador_bairro: Record<string, Record<string, number>> };
   investimentos: null | { total_empenhado: number; localizado: number; n_empenhos: number; n_localizados: number; anos: string[];
     regioes: Record<string, { total: number; investimento: number; por_eleitor: number; investimento_por_eleitor: number; por_ano: Record<string, number> }>;

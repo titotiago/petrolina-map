@@ -33,6 +33,13 @@ class Gazetteer:
                          ("COHAB VI", "COHAB 6"), ("COHAB V", "COHAB 5"), ("COHAB QUATRO", "COHAB IV"), ("GERCINO COELHO", "GERSINO COELHO")]:
             if k in self.names:
                 self.names.setdefault(alias, self.names[k])
+        # irrigation project nuclei are usually written "N4", "N-04", "Núcleo 4"
+        for k in list(self.names):
+            m = re.search(r"NILO COELHO N (\d+)", k)
+            if m:
+                n = int(m.group(1))
+                for alias in (f"N{n}", f"N0{n}" if n < 10 else f"N{n}", f"NUCLEO {n}", f"NUCLEO N{n}", f"PROJETO N{n}"):
+                    self.names.setdefault(alias, self.names[k])
         keys = sorted(self.names, key=len, reverse=True)
         # never a neighbourhood when followed by "DE" (CENTRO DE SAUDE, CENTRO DE REFERENCIA...)
         self.pats = [(k, re.compile(rf"\b{re.escape(k)}\b(?!\s+DE\b)"), re.compile(rf"{LOCATOR}{re.escape(k)}\b(?!\s+DE\b)")) for k in keys]

@@ -88,6 +88,7 @@ def obras_federais(max_pages: int = 400) -> pd.DataFrame:
             if not c:
                 break
             items += c
+            print(f"  obrasgov PE página {page}: {len(items)} projetos", flush=True)
             time.sleep(1.0)
         RAW.mkdir(parents=True, exist_ok=True)
         cache.write_text(json.dumps(items, ensure_ascii=False), encoding="utf-8")
@@ -117,16 +118,26 @@ def obras_federais(max_pages: int = 400) -> pd.DataFrame:
 def licitacoes() -> pd.DataFrame:
     rows = []
     for y in range(2021, 2027):
-        try:
-            r = _get("https://licitacoes.petrolina.pe.gov.br:8082/licitacao/exportar/json",
-                     {"dataInicio": f"01/01/{y}", "dataFim": f"31/12/{y}", "page": 0, "size": 5000}, timeout=180, tries=2)
-            data = r.json()
+        page = 0
+        while True:
+            try:
+                r = _get("https://licitacoes.petrolina.pe.gov.br:8082/licitacao/exportar/json",
+                         {"dataInicio": f"01/01/{y}", "dataFim": f"31/12/{y}", "page": page, "size": 500}, timeout=90, tries=2)
+                data = r.json()
+            except Exception as e:
+                print(f"  licitações {y} p{page}: indisponível ({e})")
+                break
             data = data.get("content", data) if isinstance(data, dict) else data
+            if not data:
+                break
             for d in data:
                 d["ano_consulta"] = y
             rows += data
-        except Exception as e:
-            print(f"  licitações {y}: indisponível ({e})")
+            if len(data) < 500:
+                break
+            page += 1
+            time.sleep(1.0)
+        print(f"  licitações {y}: {sum(1 for x in rows if x['ano_consulta'] == y)}", flush=True)
     df = pd.DataFrame(rows)
     if len(df):
         df.to_csv(OUT / "licitacoes_petrolina.csv", index=False)
@@ -135,12 +146,19 @@ def licitacoes() -> pd.DataFrame:
 
 if __name__ == "__main__":
     OUT.mkdir(parents=True, exist_ok=True)
-    e = emendas()
-    print(f"emendas: {len(e)} linhas, R$ {e['Valor Empenhado'].sum():,.0f} empenhados, R$ {e['Valor Pago'].sum():,.0f} pagos")
-    f = emendas_favorecidos()
-    print(f"emendas recebidas por entidades de Petrolina: {len(f)} pagamentos, R$ {f['Valor Recebido'].sum():,.0f}")
-    t = transferencias_especiais()
-    print(f"transferências especiais: {len(t)}")
+    import sys
+    only = set(sys.argv[1:])
+    if not only or "emendas" in only:
+        e = emendas()
+        print(f"emendas: {len(e)} linhas, R$ {e['Valor Empenhado'].sum():,.0f} empenhados, R$ {e['Valor Pago'].sum():,.0f} pagos")
+        f = emendas_favorecidos()
+        print(f"emendas recebidas por entidades de Petrolina: {len(f)} pagamentos, R$ {f['Valor Recebido'].sum():,.0f}")
+        t = transferencias_especiais()
+        print(f"transferências especiais: {len(t)}")
+    if only and "licitacoes" not in only and "obras" in only:
+        o = obras_federais()
+        print(f"obras federais em Petrolina: {len(o)} ({o.lat.notna().sum() if len(o) else 0} com coordenadas)")
+        raise SystemExit
     lic = licitacoes()
     print(f"licitações: {len(lic)}")
     o = obras_federais()

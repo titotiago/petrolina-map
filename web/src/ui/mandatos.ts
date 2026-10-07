@@ -27,6 +27,8 @@ export function renderMandatos(app: App) {
       { key: "total", label: "Total", get: (v) => C.vereadores[v.numero].total, num: true },
       { key: "ind", label: "Indicações", get: (v) => C.vereadores[v.numero].por_tipo.indicacoes ?? 0, num: true },
       { key: "req", label: "Requerim.", get: (v) => C.vereadores[v.numero].por_tipo.requerimentos ?? 0, num: true },
+      { key: "pres", label: "Presença", get: (v) => C.vereadores[v.numero].votacoes?.presenca ?? null, num: true, fmt: (x: number | null) => (x == null ? "–" : pct(x, 0)) },
+      { key: "dis", label: "Contra maioria", get: (v) => C.vereadores[v.numero].votacoes?.contra_maioria ?? null, num: true, fmt: (x: number | null) => (x == null ? "–" : pct(x, 0)) },
       { key: "base", label: "Na base × votos", get: (v) => C.vereadores[v.numero].pct_indicacoes_base ?? null, num: true,
         fmt: (x: number | null, v) => (x == null ? "–" : `${pct(x, 0)} × ${pct(C.vereadores[v.numero].pct_votos_base ?? 0, 0)}`) },
     ], { sort: "total", onRow: (v) => app.go({ cand: v.numero }) });
@@ -53,7 +55,7 @@ function camara(app: App) {
       <h4>Bairros mais citados</h4>${bars(V.top_bairros.map((b) => ({ label: b.bairro, value: b.n })), { format: (x) => fmt(x) })}
       <h4>Pedidos recentes</h4><ul class="plain">${V.exemplos.map((e) => `<li><span class="muted small">${esc(e.data)} · ${esc(e.tipo)}</span><br>${esc(e.ementa)} <a href="${esc(e.pdf)}" target="_blank" rel="noopener">PDF</a></li>`).join("")}</ul></div>` : ""}
     <h3>Vereadores eleitos em 2024</h3><div id="vtab"></div>
-    <p class="muted small">"Na base × votos" compara a parcela dos pedidos (com bairro) feitos para a região-base do vereador com a parcela dos votos que vem de lá. Presenças em sessão não foram coletadas (o site publica imagens escaneadas). ${C.votacoes_pdfs ? `${fmt(C.votacoes_pdfs)} PDFs de votações nominais listados.` : ""}</p>`;
+    <p class="muted small">"Na base × votos" compara a parcela dos pedidos (com bairro) feitos para a região-base do vereador com a parcela dos votos que vem de lá. ${C.votacoes ? `Presença e "contra maioria" vêm de ${fmt(C.votacoes.n_votacoes)} votações nominais (PDFs da Câmara; ${fmt(C.votacoes.unanimes)} unânimes). Presença = votou ou presidiu; ausência justificada conta como ausência.` : ""} As listas de presença em sessão são imagens escaneadas e não foram usadas.</p>`;
 }
 
 function investimentos(app: App) {

@@ -103,8 +103,70 @@ def votacoes() -> pd.DataFrame:
     return df
 
 
+# ---------------------------------------------------------------- roll-call votes (PDF tables with a text layer)
+VOTE_RE = r"(Favor[áa]vel|Contr[áa]ri[oa]|Absten[çc][ãa]o|Aus[êe]ncia\s+Justificada|Ausente(?:\s+na\s+vota[çc][ãa]o)?|Presidente|Obstru[çc][ãa]o)\s*$"
+
+
+def parse_vote_pdf(path: Path) -> dict | None:
+    from pypdf import PdfReader
+    try:
+        text = "\n".join((p.extract_text() or "") for p in PdfReader(str(path)).pages)
+    except Exception:
+        return None
+    if "VOTA" not in text.upper():
+        return None
+    head = re.search(r"(Projeto de (?:Lei|Resolu[çc][ãa]o|Decreto)[^\n]*|Veto[^\n]*|Requerimento[^\n]*|Emenda[^\n]*|Proposta[^\n]*)", text, re.I)
+    data = re.search(r"Data:\s*(\d{2}/\d{2}/\d{4})", text)
+    placar = re.search(r"(\d+)\s*x\s*(\d+)", text)
+    votes = []
+    for line in text.splitlines():
+        line = " ".join(line.split())
+        m = re.search(VOTE_RE, line, re.I)
+        if not m or line.upper().startswith(("VEREADOR", "DATA", "1", "2")):
+            continue
+        name = line[: m.start()].strip(" -:")
+        if len(name) < 3:
+            continue
+        v = m.group(1).lower()
+        cat = ("favoravel" if v.startswith("favor") else "contrario" if v.startswith("contr") else "abstencao" if v.startswith("abst")
+               else "justificada" if "justific" in v else "presidente" if v.startswith("presid") else "obstrucao" if v.startswith("obstr") else "ausente")
+        votes.append({"nome": name, "voto": cat})
+    if not votes:
+        return None
+    return {"materia": head.group(1).strip() if head else "", "data": data.group(1) if data else "",
+            "placar": f"{placar.group(1)}x{placar.group(2)}" if placar else "", "votos": votes}
+
+
+def votacoes_detalhe() -> pd.DataFrame:
+    lst = pd.read_csv(OUT / "camara_votacoes_lista.csv")
+    rows = []
+    for url in lst.pdf:
+        f = CACHE / "votacoes_pdf" / url.rsplit("/", 1)[-1]
+        if not f.exists():
+            for attempt in range(3):
+                try:
+                    r = session.get(url, headers=HEADERS, timeout=120)
+                    r.raise_for_status()
+                    f.parent.mkdir(parents=True, exist_ok=True)
+                    f.write_bytes(r.content)
+                    time.sleep(1.0)
+                    break
+                except requests.RequestException:
+                    time.sleep(5 * (attempt + 1))
+            if not f.exists():
+                continue
+        d = parse_vote_pdf(f)
+        if d:
+            for v in d["votos"]:
+                rows.append({"pdf": url, "materia": d["materia"], "data": d["data"], "placar": d["placar"], **v})
+    df = pd.DataFrame(rows)
+    df.to_csv(OUT / "camara_votacoes_nominais.csv", index=False)
+    print(f"votações nominais: {df.pdf.nunique() if len(df) else 0} PDFs com tabela, {len(df)} votos individuais")
+    return df
+
+
 if __name__ == "__main__":
     which = sys.argv[1:] or ["indicacoes", "requerimentos", "votacoes"]
     for w in which:
-        df = votacoes() if w == "votacoes" else crawl(w)
+        df = votacoes() if w == "votacoes" else votacoes_detalhe() if w == "votos" else crawl(w)
         print(f"{w}: {len(df)} registros")
