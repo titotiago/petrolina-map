@@ -55,7 +55,8 @@ document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
       <main class="layout">
         <section class="mapbox"><div id="map"></div>
           <div class="map-ctrl"><div class="seg small" id="vis"><button data-v="areas">Áreas de influência</button><button data-v="pontos">Pontos</button></div>
-            <button class="btn small" id="fit-city">Cidade</button><button class="btn small" id="fit-all">Município</button></div>
+            <button class="btn small" id="fit-city">Cidade</button><button class="btn small" id="fit-all">Município</button>
+            <button class="btn small primary" id="locate" title="Mostrar o local de votação mais próximo de onde você está">◎ Onde estou</button></div>
           <div id="legend" class="legend"></div></section>
         <aside id="panel" class="panel"><p class="muted">Carregando dados…</p></aside>
       </main>
@@ -64,6 +65,13 @@ document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
 
 const panel = document.querySelector<HTMLElement>("#panel")!;
 const legendEl = document.querySelector<HTMLElement>("#legend")!;
+
+let userPos: { lat: number; lon: number } | null = null;
+
+// offline / installable app (production builds only)
+if ("serviceWorker" in navigator && import.meta.env.PROD) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));
+}
 
 load().then((db) => {
   const map = new ElectionMap(document.querySelector<HTMLElement>("#map")!, db);
@@ -125,6 +133,24 @@ load().then((db) => {
   });
   document.querySelector("#fit-city")!.addEventListener("click", () => map.fitCity());
   document.querySelector("#fit-all")!.addEventListener("click", () => map.fitAll());
+  document.querySelector("#locate")!.addEventListener("click", () => {
+    if (!navigator.geolocation) return alertPanel("Seu navegador não permite localização.");
+    const btn = document.querySelector<HTMLButtonElement>("#locate")!;
+    btn.textContent = "Localizando…";
+    navigator.geolocation.getCurrentPosition((pos) => {
+      btn.textContent = "◎ Onde estou";
+      userPos = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+      const near = nearestPlaces(userPos, 1)[0];
+      if (near.km > 60) return alertPanel("Você parece estar fora de Petrolina — a localização só é útil dentro do município.");
+      app.go({ place: near.p.id });
+    }, () => { btn.textContent = "◎ Onde estou"; alertPanel("Não foi possível obter sua localização (permissão negada ou sinal fraco)."); }, { enableHighAccuracy: true, timeout: 15000 });
+  });
+  function alertPanel(msg: string) { panel.insertAdjacentHTML("afterbegin", `<div class="callout alert">${esc(msg)}</div>`); }
+  function nearestPlaces(pos: { lat: number; lon: number }, n: number) {
+    const kmTo = (p: { lat: number; lon: number }) => { const dLat = ((p.lat - pos.lat) * Math.PI) / 180, dLon = ((p.lon - pos.lon) * Math.PI) / 180;
+      const h = Math.sin(dLat / 2) ** 2 + Math.cos((pos.lat * Math.PI) / 180) * Math.cos((p.lat * Math.PI) / 180) * Math.sin(dLon / 2) ** 2; return 12742 * Math.asin(Math.sqrt(h)); };
+    return db.locais.map((p) => ({ p, km: kmTo(p) })).sort((a, b) => a.km - b.km).slice(0, n);
+  }
   document.querySelector("#tabs")!.addEventListener("click", (e) => {
     const t = (e.target as HTMLElement).closest<HTMLElement>("[data-tab]");
     if (t) app.go({ tab: t.dataset.tab as Tab, cand: undefined, region: undefined, place: undefined, pair: undefined });
@@ -161,6 +187,13 @@ load().then((db) => {
     }
     if (s.place && db.byId.has(s.place)) {
       panel.innerHTML = renderPlace(app, s.place);
+      if (userPos) {
+        const near = nearestPlaces(userPos, 4);
+        const here = near.find((x) => x.p.id === s.place);
+        panel.insertAdjacentHTML("afterbegin", `<div class="callout"><b>◎ Você está ${here ? `a ${here.km.toFixed(1).replace(".", ",")} km deste local` : "perto de"}</b>
+          <div class="small">Outros locais próximos: ${near.filter((x) => x.p.id !== s.place).slice(0, 3).map((x) => `<a data-href="place=${x.p.id}">${esc(x.p.nome)}</a> (${x.km.toFixed(1).replace(".", ",")} km)`).join(" · ")}</div></div>`);
+        map.setOverlay([{ center: [userPos.lat, userPos.lon], km: 0.08, color: "#2a78d6" }]);
+      }
       bindHrefs(panel, (h) => app.go(Object.fromEntries(new URLSearchParams(h))));
       const p = db.byId.get(s.place)!;
       map.map.easeTo({ center: [p.lon, p.lat], zoom: Math.max(map.map.getZoom(), 12.5), duration: 500 });

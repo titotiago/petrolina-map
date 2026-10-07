@@ -328,3 +328,5 @@ label.chk { flex-direction: row; align-items: center; gap: 6px; text-transform: 
 .sankey { width: 100%; height: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-2); }
 .sankey text { font-size: 10.5px; fill: var(--text-primary); }
 .seg button:disabled { opacity: 0.4; cursor: not-allowed; }
+.map-ctrl { flex-wrap: wrap; max-width: calc(100% - 70px); }
+@media (max-width: 600px) { .map-ctrl .seg button { padding: 3px 6px; } .map-ctrl .btn.small { padding: 3px 7px; } }
