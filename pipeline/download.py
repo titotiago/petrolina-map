@@ -29,6 +29,19 @@ SOURCES = {
     "detalhe_votacao_secao_2026.zip": f"{TSE}/detalhe_votacao_secao/detalhe_votacao_secao_2026.zip",
     "eleitorado_local_votacao_2026.zip": f"{TSE}/eleitorado_locais_votacao/eleitorado_local_votacao_2026.zip",
     "consulta_cand_2026.zip": f"{TSE}/consulta_cand/consulta_cand_2026.zip",
+    # 2022 general (state file has governor/senator/deputies; national file has president)
+    "votacao_secao_2022_PE.zip": f"{TSE}/votacao_secao/votacao_secao_2022_PE.zip",
+    "votacao_secao_2022_BR.zip": f"{TSE}/votacao_secao/votacao_secao_2022_BR.zip",
+    "detalhe_votacao_secao_2022.zip": f"{TSE}/detalhe_votacao_secao/detalhe_votacao_secao_2022.zip",
+    "eleitorado_local_votacao_2022.zip": f"{TSE}/eleitorado_locais_votacao/eleitorado_local_votacao_2022.zip",
+    "consulta_cand_2022.zip": f"{TSE}/consulta_cand/consulta_cand_2022.zip",
+    # 2026 president (national file)
+    "votacao_secao_2026_BR.zip": f"{TSE}/votacao_secao/votacao_secao_2026_BR.zip",
+    # 2016 municipal
+    "votacao_secao_2016_PE.zip": f"{TSE}/votacao_secao/votacao_secao_2016_PE.zip",
+    "detalhe_votacao_secao_2016.zip": f"{TSE}/detalhe_votacao_secao/detalhe_votacao_secao_2016.zip",
+    "eleitorado_local_votacao_2016.zip": f"{TSE}/eleitorado_locais_votacao/eleitorado_local_votacao_2016.zip",
+    "consulta_cand_2016.zip": f"{TSE}/consulta_cand/consulta_cand_2016.zip",
     # IBGE Census 2022 (meshes with basic attributes + per-tract aggregates)
     "PE_setores_CD2022.gpkg": f"{IBGE}/malha_com_atributos/setores/gpkg/UF/PE/PE_setores_CD2022.gpkg",
     "PE_bairros_CD2022.gpkg": f"{IBGE}/malha_com_atributos/bairros/gpkg/UF/PE/PE_bairros_CD2022.gpkg",

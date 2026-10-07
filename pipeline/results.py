@@ -23,38 +23,47 @@ def _place(df, year):
     return [sp.get((int(z), int(s)), place_id(z, n)) for z, s, n in zip(df.NR_ZONA, df.NR_SECAO, df.NR_LOCAL_VOTACAO)]
 
 
-def votes(year: int, idmap: dict | None = None) -> pd.DataFrame:
-    """Long table: place (2024 id), cargo, numero, votos (1st round)."""
-    v = read(f"votacao_secao_{year}.csv")
-    v = v[v.NR_TURNO == "1"]
+# vote / detail files per election (the national file adds the president for general elections)
+VOTE_FILES = {2022: ["votacao_secao_2022.csv", "votacao_secao_2022_pres.csv"], 2026: ["votacao_secao_2026.csv", "votacao_secao_2026_pres.csv"]}
+DETAIL_FILES = {2022: ["detalhe_secao_2022_pres.csv"]}  # the BRASIL detail file already contains every office for Petrolina
+
+
+def _cargo(s: pd.Series) -> pd.Series:
+    return s.str.title().map({k.title(): v for k, v in CARGO_KEY.items()})
+
+
+def votes(year: int, idmap: dict | None = None, turno: str = "1") -> pd.DataFrame:
+    """Long table: place (2024 id), cargo, numero, votos for one round."""
+    v = pd.concat([read(f) for f in VOTE_FILES.get(year, [f"votacao_secao_{year}.csv"])], ignore_index=True)
+    v = v[v.NR_TURNO == turno]
     v["place"] = _place(v, year)
     if idmap:
         v["place"] = v.place.map(lambda x: idmap.get(x, (x,))[0])
-    v["cargo"] = v.DS_CARGO.map(CARGO_KEY)
+    v["cargo"] = _cargo(v.DS_CARGO)
     v["votos"] = v.QT_VOTOS.astype(int)
     return v.groupby(["place", "cargo", "NR_VOTAVEL"], as_index=False).votos.sum().rename(columns={"NR_VOTAVEL": "numero"})
 
 
-def detalhe(year: int, idmap: dict | None = None) -> pd.DataFrame:
-    d = read(f"detalhe_secao_{year}.csv")
-    d = d[d.NR_TURNO == "1"]
+def detalhe(year: int, idmap: dict | None = None, turno: str = "1") -> pd.DataFrame:
+    d = pd.concat([read(f) for f in DETAIL_FILES.get(year, [f"detalhe_secao_{year}.csv"])], ignore_index=True)
+    d = d[d.NR_TURNO == turno]
     d["place"] = _place(d, year)
     if idmap:
         d["place"] = d.place.map(lambda x: idmap.get(x, (x,))[0])
-    d["cargo"] = d.DS_CARGO.map(CARGO_KEY)
+    d["cargo"] = _cargo(d.DS_CARGO)
     for c in DETALHE_COLS:
         d[c] = d[c].astype(int)
     return d.groupby(["place", "cargo"], as_index=False)[DETALHE_COLS].sum()
 
 
-def candidates(year: int) -> pd.DataFrame:
+def candidates(year: int, turno: str = "1") -> pd.DataFrame:
     c = read(f"cand_{year}.csv", mun_col=None)
-    if year != 2026:
-        c = c[c.SG_UE == "25216"]
-    else:
+    if year in (2022, 2026):
         c = c[c.SG_UF.isin(["PE", "BR"])]
-    c = c[c.NR_TURNO == "1"]
-    c["cargo"] = c.DS_CARGO.str.title().map({k.title(): v for k, v in CARGO_KEY.items()})
+    else:
+        c = c[c.SG_UE == "25216"]
+    c = c[c.NR_TURNO == turno]
+    c["cargo"] = _cargo(c.DS_CARGO)
     return c[c.cargo.notna()]
 
 

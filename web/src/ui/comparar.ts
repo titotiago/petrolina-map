@@ -43,6 +43,7 @@ export function renderComparar(app: App) {
       ${row("Partido", (c) => chip(c.partido, partyColor(c.partido)))}
       ${row("Situação", (c) => badge(c.situacao))}
       ${row("Votos 2024", (c) => `<b>${fmt(c.votos)}</b> <span class="muted">${c.rank}º</span>`)}
+      ${row("Votos 2016 → 2020", (c) => `${c.hist_2016?.votos != null ? fmt(c.hist_2016.votos) : "–"} → ${c.hist_2020?.votos != null ? fmt(c.hist_2020.votos) : "–"}`)}
       ${row("Δ desde 2020", (c) => (c.hist_2020?.variacao != null ? `${c.hist_2020.variacao > 0 ? "+" : ""}${fmt(c.hist_2020.variacao)}` : esc(c.trajetoria)))}
       ${row("% do QE", (c) => pct(c.pct_qe, 0))}
       ${row("Margem s/ suplente", (c) => (c.margem_suplente != null ? fmt(c.margem_suplente) : "–"))}
@@ -51,6 +52,7 @@ export function renderComparar(app: App) {
       ${row("Perfil territorial", (c) => esc(c.territorio?.tipo ?? "–"))}
       ${row("Moran's I", (c) => (c.lisa ? c.lisa.moran.toFixed(2).replace(".", ",") : "–"))}
       ${row("Locais liderados", (c) => String(c.dominio_locais ?? 0))}
+      ${row("Território × Lula 2022 (r)", (c) => (c.alinhamento_lula != null ? (c.alinhamento_lula > 0 ? "+" : "") + c.alinhamento_lula.toFixed(2).replace(".", ",") : "–"))}
       ${row("Efeito Simão (r)", (c) => (c.efeito_simao != null ? (c.efeito_simao > 0 ? "+" : "") + c.efeito_simao.toFixed(2).replace(".", ",") : "–"))}
       ${row("Receitas", (c) => brl(c.financas?.receita_total))}
       ${row("Custo por voto", (c) => (c.custo_por_voto != null ? brl(c.custo_por_voto, 2) : "–"))}

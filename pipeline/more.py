@@ -34,7 +34,9 @@ def inheritance(ctx, cands) -> list:
     c24 = ctx.cands[2024]
     for _, row in c24[c24.cargo == "vereador"].iterrows():
         by_title[row.NR_TITULO_ELEITORAL_CANDIDATO] = row.NR_CANDIDATO
-    m20 = shares(matrix(ctx, 2020, "vereador"))
+    raw20 = matrix(ctx, 2020, "vereador")
+    ok = (raw20.sum(axis=1) > 0).values  # only places that existed in 2020
+    m20 = shares(raw20)
     sh24 = shares(matrix(ctx, 2024, "vereador"))
     w = ctx.base.set_index("id").eleitores.astype(float).values
     big = [c for c in cands if c["votos"] >= 700]
@@ -47,7 +49,7 @@ def inheritance(ctx, cands) -> list:
         x = m20[row.NR_CANDIDATO].values if row.NR_CANDIDATO in m20 else None
         if x is None or x.sum() == 0:
             continue
-        heirs = sorted(((c, wcorr(x, sh24[c["numero"]].values, w)) for c in big if c["numero"] != n24), key=lambda t: -t[1])[:3]
+        heirs = sorted(((c, wcorr(x[ok], sh24[c["numero"]].values[ok], w[ok])) for c in big if c["numero"] != n24), key=lambda t: -t[1])[:3]
         out.append({
             "nome": row.NM_URNA_CANDIDATO.strip(), "partido_2020": row.SG_PARTIDO, "votos_2020": int(matrix(ctx, 2020, "vereador")[row.NR_CANDIDATO].sum()),
             "status_2024": ("não eleito" if c_now else "não concorreu"), "votos_2024": c_now["votos"] if c_now else None,

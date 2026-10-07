@@ -41,11 +41,14 @@ def party_key(row) -> str:
     return fed_label(row.SG_FEDERACAO) if row.NR_FEDERACAO not in ("-1", "", "#NULO") else row.SG_PARTIDO
 
 
+PROPORCIONAL = {"vereador", "dep_federal", "dep_estadual"}
+
+
 def matrix(ctx, year, cargo, include_legenda=True) -> pd.DataFrame:
     """places x numero vote matrix (no blank/null)."""
     v = ctx.votes[year]
     v = v[(v.cargo == cargo) & ~v.numero.isin(BRANCO_NULO)]
-    if not include_legenda:
+    if not include_legenda and cargo in PROPORCIONAL:  # party-label votes only exist in proportional races
         v = v[v.numero.str.len() > 2]
     m = v.pivot_table(index="place", columns="numero", values="votos", aggfunc="sum", fill_value=0)
     return m.reindex(ctx.base.id, fill_value=0)
@@ -94,6 +97,11 @@ def profile_by_place() -> pd.DataFrame:
 
 def shares(df: pd.DataFrame) -> pd.DataFrame:
     return df.div(df.sum(axis=1).replace(0, np.nan), axis=0).fillna(0)
+
+
+def shares_nan(df: pd.DataFrame) -> pd.DataFrame:
+    """Like shares(), but places with no votes in that election stay NaN (place didn't exist yet)."""
+    return df.div(df.sum(axis=1).replace(0, np.nan), axis=0)
 
 
 def wquantile_radius(lat, lon, w, clat, clon, q):

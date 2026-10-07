@@ -12,6 +12,7 @@ const MODES: [string, string, string][] = [
   ["lisa", "Redutos", "Clusters estatísticos de força (Moran local)"],
   ["segmentos", "Perfis", "Áreas com comportamento eleitoral parecido"],
   ["registro", "Registro", "Eleitores por adulto (Censo 2022)"],
+  ["polarizacao", "Polarização", "Lula × Bolsonaro por área (2022) e variação até 2026"],
 ];
 
 const LISA_CLASSES: [string, string, string][] = [
@@ -30,7 +31,7 @@ export function renderGeografia(app: App) {
     <div class="ph"><div class="eyebrow">Geografia do voto</div><h2>${esc(MODES.find(([k]) => k === modo)![1])}</h2>
     <p class="lead">${esc(MODES.find(([k]) => k === modo)![2])}. Cada polígono é a <b>área de influência</b> de um local de votação (Voronoi recortado no município, até 8 km).</p></div>
     <div class="seg">${MODES.map(([k, l]) => `<button class="${k === modo ? "on" : ""}" data-href="gmodo=${k}">${l}</button>`).join("")}</div>`;
-  const body = modo === "dominio" ? dominio(app) : modo === "conflito" ? conflito(app) : modo === "lisa" ? lisa(app) : modo === "segmentos" ? segmentos(app) : registro(app);
+  const body = modo === "dominio" ? dominio(app) : modo === "conflito" ? conflito(app) : modo === "lisa" ? lisa(app) : modo === "segmentos" ? segmentos(app) : modo === "polarizacao" ? polarizacao(app) : registro(app);
   app.panel.innerHTML = head + body;
   bindHrefs(app.panel, (h) => app.go(Object.fromEntries(new URLSearchParams(h))));
   app.panel.querySelector<HTMLSelectElement>("#lisa-cand")?.addEventListener("change", (e) => app.go({ num: (e.target as HTMLSelectElement).value }));
@@ -175,4 +176,37 @@ function registro(app: App) {
     <h3>Por região (eleitores ÷ habitantes)</h3>
     ${bars(rs.map((r) => ({ label: r.k, value: r.v, note: `${fmt(r.pop)} hab.`, color: r.v < 0.6 ? "#e34948" : "var(--series-1)", href: `tab=regioes&region=${encodeURIComponent(r.k)}` })), { format: (x) => x.toFixed(2).replace(".", ","), max: 1.2 })}
     <p class="muted small">Valores baixos: bairros novos/em crescimento, moradores que mantêm título de outro bairro/cidade, ou não cadastrados. São alvo de transferência de título e de presença de rua; valores altos indicam o contrário (eleitores de fora votando ali).</p>`;
+}
+
+// ------------------------------------------------------------------ polarization
+function polarizacao(app: App) {
+  const { db, state } = app;
+  const I = db.extras.ideologia;
+  const var26 = state.seg === "var";
+  const st = new Map<string, PlaceStyle>();
+  for (const p of db.locais) {
+    const l22 = I.lula_2022_2t[p.id], l26 = I.lula_2026_1t[p.id];
+    if (l22 == null) continue;
+    // PT red for Lula-leaning, PL green for Bolsonaro-leaning; neutral at 50%
+    const t = var26 ? (l26 - l22) / 0.15 : (l22 - 0.5) / 0.35;
+    st.set(p.id, { color: var26 ? div(Math.max(-1, Math.min(1, t))) : t >= 0 ? mix(partyColor("PT"), Math.min(1, t)) : mix(partyColor("PL"), Math.min(1, -t)), opacity: 0.85 });
+  }
+  app.map.setPlaces(st, (id) => `${tipBase(app, id)}<br>Lula 2022 (2º t.): ${pct(I.lula_2022_2t[id])}<br>Lula 2026 (1º t.): ${pct(I.lula_2026_1t[id])}`);
+  app.legend(var26 ? legendRamp(DIV_STOPS(), "−15 p.p.", "+15 p.p.", "Lula: 2º turno 2022 → 1º turno 2026 (p.p.)")
+    : legendCats([{ label: "Lula > 85%", color: mix(partyColor("PT"), 1) }, { label: "Lula ~ 67%", color: mix(partyColor("PT"), 0.5) }, { label: "Empate (50%)", color: mix(partyColor("PT"), 0) }, { label: "Bolsonaro > 60%", color: mix(partyColor("PL"), 0.3) }], "2º turno presidencial 2022"));
+  const el = db.vereadores.filter((v) => v.eleito && v.alinhamento_lula != null).sort((a, b) => b.alinhamento_lula! - a.alinhamento_lula!);
+  return `
+    <div class="seg small"><button class="${var26 ? "" : "on"}" data-href="seg=">2022 (2º turno)</button><button class="${var26 ? "on" : ""}" data-href="seg=var">Variação 2022 → 2026</button></div>
+    <p class="small">Lula venceu em quase toda a cidade, mas com intensidade muito diferente entre o Centro e a zona rural. Correlação por local entre o voto de Simão (2024) e o de Lula: <b>${I.simao_x_lula != null ? (I.simao_x_lula > 0 ? "+" : "") + I.simao_x_lula.toFixed(2).replace(".", ",") : "–"}</b>.</p>
+    <h3>Vereadores eleitos: território mais lulista ↔ menos lulista</h3>
+    ${dbars(el.map((v) => ({ label: v.nome, value: v.alinhamento_lula!, fmt: (v.alinhamento_lula! > 0 ? "+" : "") + v.alinhamento_lula!.toFixed(2).replace(".", ",") })), 0.5)}
+    <p class="muted small">Correlação (ponderada por eleitores) entre a participação do vereador em cada local e a votação de Lula. Mede o perfil do território onde o vereador é votado, não a posição política dele nem a de cada eleitor.</p>`;
+}
+
+/** Blend a colour toward the neutral surface: k=0 neutral, k=1 full colour. */
+function mix(hex: string, k: number) {
+  const n = parseInt(hex.slice(1), 16);
+  const base = document.documentElement.dataset.theme === "dark" || (!document.documentElement.dataset.theme && matchMedia("(prefers-color-scheme: dark)").matches) ? [56, 56, 53] : [226, 225, 220];
+  const c = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v, i) => Math.round(base[i] + (v - base[i]) * Math.max(0, Math.min(1, k))));
+  return `rgb(${c.join(",")})`;
 }

@@ -319,3 +319,7 @@ ul.cols { columns: 2; column-gap: 16px; font-size: 0.82rem; }
 .scatter line.thr { stroke: var(--line-strong); stroke-width: 1.2; stroke-dasharray: 4 3; }
 .scatter circle { cursor: pointer; }
 .scatter circle:hover { stroke: var(--text-primary); stroke-width: 2; }
+
+.spark { width: 240px; max-width: 100%; height: auto; display: block; }
+.spark text { font-size: 9px; fill: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.spark text.lbl { fill: var(--text-muted); }

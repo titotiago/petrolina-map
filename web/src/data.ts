@@ -39,6 +39,9 @@ export interface Vereador {
   efeito_simao?: number;
   rivais_perfil?: { numero: string; perfil: number; terr_secao: number; quadrante: string }[];
   apelo_pp?: Record<string, number>;
+  alinhamento_lula?: number;
+  afinidade_2022?: Record<string, { numero: string; r: number; votos_petrolina: number }[]>;
+  hist_2016?: { cargo: string; partido: string; situacao: string; numero: string; votos: number | null };
 }
 export interface LisaPack { moran: number; classe: Record<string, string>; redutos: string[] }
 export interface Dominio { lider: string; lider_pct: number; segundo: string; segundo_pct: number; n_fortes: number; terra_de_ninguem: boolean; conflito: number; fortes: { numero: string; pct: number }[] }
@@ -79,6 +82,8 @@ export interface Extras {
     por_regiao: Record<string, Record<string, number>>; por_local: Record<string, number> };
   bancadas: Record<string, { "2020": number; "2024": number }>;
   abstencao: Record<string, number>;
+  ideologia: { lula_2022_2t: Record<string, number>; lula_2026_1t: Record<string, number>; por_candidato: Record<string, number>; simao_x_lula: number | null };
+  renovacao: { reeleitos_2016_2020: number; reeleitos_2020_2024: number; eleitos: Record<string, number>; tres_mandatos: string[] };
 }
 
 export interface PerfilPar { a: string; b: string; a_nome: string; b_nome: string; ambos_eleitos: boolean; terr_local: number | null; terr_secao: number; perfil: number; disputa: number; quadrante: string }

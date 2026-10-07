@@ -20,9 +20,10 @@ export function officeRows(app: App, year: string, cargo: string, ids: string[],
 }
 
 export function turnoutTiles(app: App, ids: string[]) {
-  const rows = [["2020", "prefeito"], ["2024", "prefeito"], ["2026", "governador"]].map(([y, c]) => ({ y, d: aggDet(app.db, y, c, ids) }));
+  const rows = [["2016", "prefeito"], ["2020", "prefeito"], ["2022-2", "presidente"], ["2024", "prefeito"], ["2026", "governador"]].map(([y, c]) => ({ y, d: aggDet(app.db, y, c, ids) }));
+  const lab: Record<string, string> = { "2022-2": "2022 (2º t.)", "2026": "2026 (1º t.)" };
   return `<table class="tbl compact"><thead><tr><th>Eleição</th><th class="num">Aptos</th><th class="num">Comparec.</th><th class="num">Abstenção</th><th class="num">Brancos+nulos</th></tr></thead><tbody>
-    ${rows.map(({ y, d }) => `<tr><td>${y}${y === "2026" ? " (gov.)" : ""}</td><td class="num">${fmt(d.aptos)}</td><td class="num">${pct(d.comp / d.aptos)}</td><td class="num">${pct(d.abst / d.aptos)}</td><td class="num">${pct((d.brancos + d.nulos) / d.comp)}</td></tr>`).join("")}
+    ${rows.map(({ y, d }) => `<tr><td>${lab[y] ?? y}</td><td class="num">${fmt(d.aptos)}</td><td class="num">${pct(d.comp / d.aptos)}</td><td class="num">${pct(d.abst / d.aptos)}</td><td class="num">${pct((d.brancos + d.nulos) / d.comp)}</td></tr>`).join("")}
   </tbody></table>`;
 }
 
@@ -59,6 +60,7 @@ export function areaReport(app: App, ids: string[]) {
     <p class="muted small">★ = eleito. Cor = partido do candidato.</p>
     <h3>Prefeito</h3><div class="grid2"><div><h4>2024</h4>${bars(m24, { max: 1 })}</div><div><h4>2020</h4>${bars(m20, { max: 1 })}</div></div>
     <h3>Comparecimento</h3>${turnoutTiles(app, ids)}
+    <h3>Presidente</h3><div class="grid2"><div><h4>2022 · 2º turno</h4>${bars(officeRows(app, "2022-2", "presidente", ids, 2), { max: 1 })}</div><div><h4>2026 · 1º turno</h4>${bars(officeRows(app, "2026", "presidente", ids, 3), { max: 1 })}</div></div>
     <h3>2026 (1º turno)</h3><div class="grid2"><div><h4>Governador</h4>${bars(officeRows(app, "2026", "governador", ids, 3), { max: 1 })}</div>
       <div><h4>Senador</h4>${bars(officeRows(app, "2026", "senador", ids, 4), { max: 0.6 })}</div></div>
     <div class="grid2"><div><h4>Dep. estadual</h4>${bars(officeRows(app, "2026", "dep_estadual", ids, 5), { max: 0.4 })}</div>

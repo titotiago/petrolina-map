@@ -5,14 +5,20 @@ import { div, DIV_STOPS, scaler, seq, SEQ_STOPS, partyColor } from "../colors";
 import type { PlaceStyle } from "../map";
 import { bindHrefs, csvDownload, legendRamp, partyLegend } from "./common";
 
-const CARGOS: Record<string, [string, string][]> = {
-  "2024": [["prefeito", "Prefeito"], ["vereador", "Vereador"]],
+export const CARGOS: Record<string, [string, string][]> = {
+  "2016": [["prefeito", "Prefeito"], ["vereador", "Vereador"]],
   "2020": [["prefeito", "Prefeito"], ["vereador", "Vereador"]],
-  "2026": [["governador", "Governador"], ["senador", "Senador"], ["dep_federal", "Dep. federal"], ["dep_estadual", "Dep. estadual"]],
+  "2022": [["presidente", "Presidente"], ["governador", "Governador"], ["senador", "Senador"], ["dep_federal", "Dep. federal"], ["dep_estadual", "Dep. estadual"]],
+  "2022-2": [["presidente", "Presidente"], ["governador", "Governador"]],
+  "2024": [["prefeito", "Prefeito"], ["vereador", "Vereador"]],
+  "2026": [["presidente", "Presidente"], ["governador", "Governador"], ["senador", "Senador"], ["dep_federal", "Dep. federal"], ["dep_estadual", "Dep. estadual"]],
 };
+export const YEAR_LABEL: Record<string, string> = { "2016": "2016", "2020": "2020", "2022": "2022 · 1º t.", "2022-2": "2022 · 2º t.", "2024": "2024", "2026": "2026 · 1º t." };
+let timer: number | undefined;
 const METRICS: [string, string, string][] = [
   ["vencedor", "Mais votado", "Cor = candidato (ou campo, para vereador) mais votado no local"],
   ["candidato", "Candidato escolhido (%)", "Participação do candidato escolhido nos votos válidos do local"],
+  ["delta_numero", "Candidato/partido: variação vs eleição anterior", "Participação do mesmo número (candidato ou partido) em relação à eleição anterior do mesmo cargo"],
   ["comparecimento", "Comparecimento", "Comparecimento ÷ aptos"],
   ["abstencao", "Abstenção", "Abstenções ÷ aptos"],
   ["brancos_nulos", "Brancos + nulos", "(Brancos + nulos) ÷ comparecimento"],
@@ -46,6 +52,10 @@ export function metricValue(app: App, id: string, metric: string, year: string, 
   const share = (y: string, c: string, n: string) => { const v = db.votos[y]?.[c]?.[id] ?? {}; return (v[n] ?? 0) / (valid(v) || NaN); };
   switch (metric) {
     case "candidato": return num ? share(year, cargo, num) : NaN;
+    case "delta_numero": {
+      const prev = prevYear(year, cargo);
+      return num && prev ? share(year, cargo, num) - share(prev, cargo, num) : NaN;
+    }
     case "comparecimento": case "abstencao": case "brancos_nulos": return detVal(app, year, cargo === "vereador" ? "vereador" : cargo, id, metric);
     case "swing": return share("2024", "prefeito", "44") - share("2020", "prefeito", "15");
     case "swing_comp": return detVal(app, "2024", "prefeito", id, "comparecimento") - detVal(app, "2020", "prefeito", id, "comparecimento");
@@ -67,8 +77,15 @@ export function metricValue(app: App, id: string, metric: string, year: string, 
   return NaN;
 }
 
-const FMT: Record<string, (x: number) => string> = { swing: (x) => pp(x), swing_comp: (x) => pp(x), divergencia: (x) => pp(x), nec: (x) => x.toFixed(0) };
-const DIVERGING = new Set(["swing", "swing_comp", "divergencia"]);
+const FMT: Record<string, (x: number) => string> = { delta_numero: (x) => pp(x), swing: (x) => pp(x), swing_comp: (x) => pp(x), divergencia: (x) => pp(x), nec: (x) => x.toFixed(0) };
+const DIVERGING = new Set(["swing", "swing_comp", "divergencia", "delta_numero"]);
+
+/** Most recent earlier election with the same office (e.g. 2026 presidente → 2022 2º turno). */
+export function prevYear(year: string, cargo: string): string | null {
+  const ys = Object.keys(CARGOS);
+  for (let i = ys.indexOf(year) - 1; i >= 0; i--) if (CARGOS[ys[i]].some(([k]) => k === cargo)) return ys[i];
+  return null;
+}
 
 export function renderExplorar(app: App) {
   const { db, state } = app;
@@ -101,7 +118,8 @@ export function renderExplorar(app: App) {
     if (DIVERGING.has(metric)) {
       const m = Math.max(...arr.map(Math.abs));
       vals.forEach((x, id) => isFinite(x) && st.set(id, { color: div(x / m) }));
-      legend = legendRamp(DIV_STOPS(), f(-m), f(m), METRICS.find((x) => x[0] === metric)![1]);
+      const pv = prevYear(year, cargo);
+      legend = legendRamp(DIV_STOPS(), f(-m), f(m), metric === "delta_numero" ? `${candName(db, year, cargo, num!)} (nº ${num}) — ${pv ? YEAR_LABEL[pv] : "?"} → ${YEAR_LABEL[year]}` : METRICS.find((x) => x[0] === metric)![1]);
     } else {
       const sc = scaler(arr, 0.98);
       vals.forEach((x, id) => isFinite(x) && st.set(id, { color: seq(0.1 + 0.9 * sc.f(x)) }));
@@ -137,7 +155,7 @@ export function renderExplorar(app: App) {
   app.panel.innerHTML = `
     <div class="ph"><div class="eyebrow">Explorador</div><h2>Qualquer eleição, cargo e métrica</h2></div>
     <div class="form">
-      <label>Eleição <select id="y">${Object.keys(CARGOS).map((y) => `<option ${y === year ? "selected" : ""}>${y}</option>`).join("")}</select></label>
+      <div class="wide"><label>Linha do tempo</label><div class="seg small timeline">${Object.keys(CARGOS).map((y) => `<button class="${y === year ? "on" : ""}" data-y="${y}">${YEAR_LABEL[y]}</button>`).join("")}<button id="play" title="Animar a sequência de eleições">${timer ? "■ parar" : "▶ animar"}</button></div></div>
       <label>Cargo <select id="c">${CARGOS[year].map(([k, l]) => `<option value="${k}" ${k === cargo ? "selected" : ""}>${l}</option>`).join("")}</select></label>
       <label class="wide">Métrica <select id="m">${METRICS.map(([k, l]) => `<option value="${k}" ${k === metric ? "selected" : ""}>${l}</option>`).join("")}</select></label>
       <label class="wide">Candidato <input id="q" list="cands" placeholder="buscar nome ou número" value="${num ? esc(`${candName(db, year, cargo, num)} (${num})`) : ""}"><datalist id="cands">${city.map(([n]) => `<option value="${esc(candName(db, year, cargo, n))} (${n})">`).join("")}</datalist></label>
@@ -145,14 +163,24 @@ export function renderExplorar(app: App) {
       ${state.layer === "setores" ? `<label class="wide">Variável do Censo <select id="sm">${SMETRICS.map(([k, l]) => `<option value="${k}" ${k === sm[0] ? "selected" : ""}>${l}</option>`).join("")}</select></label>` : ""}
     </div>
     <p class="muted small">${esc(METRICS.find((x) => x[0] === metric)?.[2] ?? "")}. Clique num local para o detalhe; clique numa região/bairro para o recorte.</p>
-    <h3>Resultado na cidade — ${esc(CARGOS[year].find(([k]) => k === cargo)![1])} ${year}</h3>
+    <h3>Resultado na cidade — ${esc(CARGOS[year].find(([k]) => k === cargo)![1])} ${YEAR_LABEL[year]}</h3>
     <div class="table-wrap"><table class="tbl compact"><thead><tr><th>#</th><th>Candidato</th><th>Partido</th><th class="num">Votos</th><th class="num">%</th></tr></thead><tbody>
     ${city.slice(0, 25).map(([n, x], i) => `<tr class="clickable ${n === num ? "sel" : ""}" data-href="num=${n}&metric=candidato"><td>${i + 1}</td><td>${esc(candName(db, year, cargo, n))}</td><td>${esc(candParty(db, year, cargo, n))}</td><td class="num">${fmt(x)}</td><td class="num">${pct(x / total)}</td></tr>`).join("")}
     </tbody></table></div>
     <button class="btn" id="csv">Exportar resultados por local (CSV)</button>`;
   const P = app.panel;
   const sel = (id: string) => P.querySelector<HTMLSelectElement>(id)!;
-  sel("#y").addEventListener("change", (e) => app.go({ year: (e.target as HTMLSelectElement).value, num: undefined }));
+  P.querySelectorAll<HTMLButtonElement>(".timeline [data-y]").forEach((b) => b.addEventListener("click", () => { stopTimer(); app.go({ year: b.dataset.y!, num: undefined }); }));
+  P.querySelector("#play")!.addEventListener("click", () => {
+    if (timer) { stopTimer(); app.go({}); return; }
+    const ys = Object.keys(CARGOS);
+    timer = window.setInterval(() => {
+      if (app.state.tab !== "mapa") return stopTimer();
+      const next = ys[(ys.indexOf(app.state.year) + 1) % ys.length];
+      app.go({ year: next, num: undefined }, true);
+    }, 1800);
+    app.go({});
+  });
   sel("#c").addEventListener("change", (e) => app.go({ cargo: (e.target as HTMLSelectElement).value, num: undefined }));
   sel("#m").addEventListener("change", (e) => app.go({ metric: (e.target as HTMLSelectElement).value }));
   sel("#l").addEventListener("change", (e) => app.go({ layer: (e.target as HTMLSelectElement).value as never }));
@@ -168,3 +196,5 @@ export function renderExplorar(app: App) {
       db.locais.map((p) => { const v = db.votos[year]?.[cargo]?.[p.id] ?? {}; return [p.id, p.nome, p.regiao, p.bairro_tse, p.eleitores, ...cands.map((n) => v[n] ?? 0)]; }));
   });
 }
+
+function stopTimer() { if (timer) { clearInterval(timer); timer = undefined; } }

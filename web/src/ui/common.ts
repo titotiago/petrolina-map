@@ -122,3 +122,19 @@ export function partyLegend(parties: (string | null | undefined)[], titleTxt: st
   const items = [...n.entries()].sort((a, b) => b[1] - a[1]).map(([p, k]) => ({ label: `${p} · ${k}`, color: colorOf(p) }));
   return legendCats([...items, ...extra], titleTxt);
 }
+
+/** Tiny inline line chart (votes over elections). Values may be null (did not run). */
+export function sparkline(points: { label: string; value: number | null }[], color = "var(--series-1)") {
+  const W = 220, H = 56, P = 18;
+  const vals = points.map((p) => p.value ?? 0);
+  const max = Math.max(...vals, 1);
+  const x = (i: number) => P + (i * (W - 2 * P)) / Math.max(1, points.length - 1);
+  const y = (v: number) => H - 16 - (v / max) * (H - 26);
+  const seg = points.map((p, i) => (p.value == null ? null : `${x(i).toFixed(1)},${y(p.value).toFixed(1)}`));
+  const path = seg.filter(Boolean).join(" ");
+  return `<svg class="spark" viewBox="0 0 ${W} ${H}" role="img" aria-label="Votos por eleição">
+    <polyline points="${path}" fill="none" stroke="${color}" stroke-width="2"/>
+    ${points.map((p, i) => p.value == null ? `<text x="${x(i)}" y="${H - 18}" text-anchor="middle">–</text>` : `<circle cx="${x(i)}" cy="${y(p.value)}" r="3.5" fill="${color}"><title>${esc(p.label)}: ${fmt(p.value)}</title></circle><text x="${x(i)}" y="${y(p.value) - 6}" text-anchor="middle">${fmt(p.value)}</text>`).join("")}
+    ${points.map((p, i) => `<text x="${x(i)}" y="${H - 3}" text-anchor="middle" class="lbl">${esc(p.label)}</text>`).join("")}
+  </svg>`;
+}

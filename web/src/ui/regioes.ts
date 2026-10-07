@@ -161,6 +161,8 @@ function renderRegion(app: App, name: string) {
     <h3>Prefeito</h3><div class="grid2"><div><h4>2024</h4>${bars(mayorRows(app, "2024", ids), { max: 1 })}</div><div><h4>2020</h4>${bars(mayorRows(app, "2020", ids), { max: 1 })}</div></div>
     <p class="muted small">Margem 2024: ${pp(r.margem_prefeito_2024, 0)} · Grupo Coelho 2020→2024: ${pp((r.prefeito_2024["44"] ?? 0) - (r.prefeito_2020["15"] ?? 0), 1)}</p>
     <h3>Comparecimento</h3>${turnoutTiles(app, ids)}
+    <h3>Presidente</h3><div class="grid2"><div><h4>2022 · 2º turno</h4>${bars(officeRows(app, "2022-2", "presidente", ids, 2), { max: 1 })}</div><div><h4>2026 · 1º turno</h4>${bars(officeRows(app, "2026", "presidente", ids, 3), { max: 1 })}</div></div>
+    <h3>Prefeito 2016</h3>${bars(mayorRows(app, "2016", ids), { max: 1 })}
     <h3>2026 (1º turno)</h3><div class="grid2"><div><h4>Governador</h4>${bars(officeRows(app, "2026", "governador", ids, 3), { max: 1 })}</div><div><h4>Senador</h4>${bars(officeRows(app, "2026", "senador", ids, 4), { max: 0.6 })}</div></div>
     <div class="grid2"><div><h4>Dep. estadual</h4>${bars(officeRows(app, "2026", "dep_estadual", ids, 5), { max: 0.4 })}</div><div><h4>Dep. federal</h4>${bars(officeRows(app, "2026", "dep_federal", ids, 5), { max: 0.4 })}</div></div>
     <h3>Censo 2022</h3>${tiles([

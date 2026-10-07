@@ -3,7 +3,7 @@ import type { App } from "../app";
 import { aggVotes, brl, candName, esc, fmt, pct, ranked, title, valid, type Vereador } from "../data";
 import { cat, div, DIV_STOPS, OTHER, scaler, seq, SEQ_STOPS, partyColor } from "../colors";
 import type { PlaceStyle } from "../map";
-import { avatar, badge, bars, bindHrefs, chip, csvDownload, dbars, legendCats, legendRamp, meter, partyLegend, table, tiles } from "./common";
+import { avatar, badge, bars, bindHrefs, chip, csvDownload, dbars, legendCats, legendRamp, meter, partyLegend, sparkline, table, tiles } from "./common";
 
 const SIT = (s: string) => (s === "ELEITO POR QP" ? "QP" : s === "ELEITO POR MÉDIA" ? "Média" : title(s));
 
@@ -153,6 +153,13 @@ function renderProfile(app: App, v: Vereador) {
     ])}
     ${v.vulnerabilidade ? `<div class="callout"><b>Vulnerabilidade 2028: ${v.vulnerabilidade.score.toFixed(2)}</b> (${v.vulnerabilidade.rank}º de 23 mais vulnerável)
       ${v.vulnerabilidade.motivos.length ? `<ul>${v.vulnerabilidade.motivos.map((m) => `<li>${esc(m)}</li>`).join("")}</ul>` : "<p>Sem alertas fortes.</p>"}</div>` : ""}
+    <h3>Trajetória</h3>
+    ${sparkline([
+      { label: "2016", value: v.hist_2016?.cargo === "Vereador" ? v.hist_2016.votos : null },
+      { label: "2020", value: h?.cargo === "Vereador" ? (h.votos ?? null) : null },
+      { label: "2024", value: v.votos },
+    ], partyColor(v.partido))}
+    <p class="muted small">${v.hist_2016 ? `2016: ${esc(v.hist_2016.cargo)} pelo ${esc(v.hist_2016.partido)} — ${esc(title(v.hist_2016.situacao))}. ` : "Não concorreu em 2016. "}${h ? `2020: ${esc(h.cargo)} pelo ${esc(h.partido)} — ${esc(title(h.situacao))}.` : "Não concorreu em 2020."}</p>
     ${t ? `<h3>Território</h3>
       <p>Perfil <b>${esc(t.tipo)}</b>: ${pct(t.top10_pct, 0)} dos votos vêm de 10 locais (equivale a ${t.locais_efetivos.toFixed(0)} locais "efetivos"). Metade dos votos está num raio de ${t.raio50_km.toFixed(1)} km do centro de gravidade e 80% em ${t.raio80_km.toFixed(1)} km (círculos no mapa). Lidera a votação de vereador em <b>${t.lidera_em.length}</b> locais.</p>
       <h4>Votos por região</h4>${bars(Object.entries(t.por_regiao).map(([k, x]) => ({ label: k, value: x / v.votos, note: fmt(x), href: `tab=regioes&region=${encodeURIComponent(k)}` })), { max: 1 })}
@@ -162,6 +169,9 @@ function renderProfile(app: App, v: Vereador) {
       ${h.ganhou_mais?.length ? `<div class="grid2"><div><h4>Onde mais cresceu</h4><ol class="plain">${h.ganhou_mais.map((g) => `<li><a data-href="place=${g.id}">${esc(placeName(g.id))}</a> +${fmt(g.delta)}</li>`).join("")}</ol></div>
       <div><h4>Onde mais perdeu</h4><ol class="plain">${(h.perdeu_mais ?? []).map((g) => `<li><a data-href="place=${g.id}">${esc(placeName(g.id))}</a> ${fmt(g.delta)}</li>`).join("")}</ol></div></div>` : ""}` : `<h3>2020 → 2024</h3><p>Não concorreu em 2020 (estreante).</p>`}
     ${v.cand_2026 ? `<div class="callout"><b>2026:</b> candidato a ${esc(v.cand_2026.cargo)} pelo ${esc(v.cand_2026.partido)} — ${esc(title(v.cand_2026.situacao))}${v.cand_2026.votos_petrolina ? `, ${fmt(v.cand_2026.votos_petrolina)} votos em Petrolina` : ""}.</div>` : ""}
+    ${v.alinhamento_lula != null ? `<h3>Território e polarização</h3><p>Correlação por local com o voto em Lula (2º turno 2022): <b>${v.alinhamento_lula > 0 ? "+" : ""}${v.alinhamento_lula.toFixed(2).replace(".", ",")}</b> — ${v.alinhamento_lula > 0.1 ? "vota mais em áreas lulistas" : v.alinhamento_lula < -0.1 ? "vota mais em áreas onde Bolsonaro foi melhor" : "votação indiferente à divisão Lula × Bolsonaro"}. <span class="muted small">Mede o território, não a posição do candidato.</span></p>` : ""}
+    ${v.afinidade_2022 ? `<h3>Puxadores de 2022</h3><p class="muted small">Deputados de 2022 cuja votação em Petrolina mais se parece com a deste vereador — indício de dobradinha passada.</p>
+      <div class="grid2">${(["dep_estadual", "dep_federal"] as const).map((k) => v.afinidade_2022?.[k]?.length ? `<div><h4>${k === "dep_estadual" ? "Dep. estadual" : "Dep. federal"}</h4><ol class="plain">${v.afinidade_2022[k].map((a) => `<li>${esc(candName(db, "2022", k, a.numero))} <span class="muted">r=${a.r.toFixed(2)} · ${fmt(a.votos_petrolina)} votos</span></li>`).join("")}</ol></div>` : "").join("")}</div>` : ""}
     ${aff ? `<h3>Afinidade com 2026</h3><p class="muted small">Candidatos de 2026 cuja votação por local mais se parece com a deste vereador em 2024 (correlação). Indica sobreposição de base eleitoral — possível aliança/puxador.</p>
       <div class="grid2">${affBlock("dep_estadual", "Dep. estadual")}${affBlock("dep_federal", "Dep. federal")}</div><div class="grid2">${affBlock("senador", "Senador")}${affBlock("governador", "Governador")}</div>` : ""}
     ${Object.keys(prof).length ? `<h3>Perfil típico do eleitor</h3><p class="muted small">Peso de cada grupo nos locais onde o candidato tem votos, comparado à média da cidade (1,00× = igual).</p>

@@ -14,9 +14,11 @@ import results as res  # noqa: E402
 import spatial  # noqa: E402
 import more  # noqa: E402
 import perfil_disputa  # noqa: E402
+import eleicoes_extra as ex  # noqa: E402
 from common import OUT, SEATS, r  # noqa: E402
 
-YEARS = [2020, 2024, 2026]
+YEARS = [2016, 2020, 2022, 2024, 2026]
+ROUND2 = "2022-2"  # 2nd round of 2022 (president + governor)
 
 
 def dump(name, obj):
@@ -56,7 +58,7 @@ def main():
     print("boundaries + polling places")
     bairros, distritos, municipio = geo.load_boundaries()
     loc = {y: geo.locais(y) for y in YEARS}
-    base = geo.fill_coords(loc[2024], [loc[2026], loc[2020]], bairros)
+    base = geo.fill_coords(loc[2024], [loc[2026], loc[2022], loc[2020], loc[2016]], bairros)
     missing = base[base.lat.isna()]
     if len(missing):
         print("  !! places without coordinates (add to pipeline/geocode_fix.csv):")
@@ -68,20 +70,24 @@ def main():
     if base.fora_municipio.any():
         print("  !! outside municipality:", base[base.fora_municipio][["id", "nome"]].to_dict("records"))
 
-    idmaps = {y: geo.map_to_base(loc[y], base) for y in (2020, 2026)}
+    idmaps = {y: geo.map_to_base(loc[y], base) for y in YEARS if y != 2024}
     for y, m in idmaps.items():
         how = pd.Series([v[1].split("_")[0] for v in m.values()]).value_counts().to_dict()
         print(f"  {y} -> 2024 place matching:", how)
 
     print("votes")
-    votes = {2024: res.votes(2024), 2020: res.votes(2020, idmaps[2020]), 2026: res.votes(2026, idmaps[2026])}
-    det = {2024: res.detalhe(2024), 2020: res.detalhe(2020, idmaps[2020]), 2026: res.detalhe(2026, idmaps[2026])}
-    for y in YEARS:  # every vote must land on a mapped polling place
-        raw = res.read(f"votacao_secao_{y}.csv")
-        raw = raw[raw.NR_TURNO == "1"].QT_VOTOS.astype(int).sum()
-        kept = votes[y][votes[y].place.isin(base.id)].votos.sum()
-        print(f"  {y}: votes kept {kept:,} / raw {raw:,}" + ("" if kept == raw else "  !! MISMATCH"))
+    votes = {y: res.votes(y, idmaps.get(y)) for y in YEARS}
+    det = {y: res.detalhe(y, idmaps.get(y)) for y in YEARS}
+    votes[ROUND2] = res.votes(2022, idmaps[2022], "2")
+    det[ROUND2] = res.detalhe(2022, idmaps[2022], "2")
+    for key in [*YEARS, ROUND2]:  # every vote must land on a mapped polling place
+        y, turno = (2022, "2") if key == ROUND2 else (key, "1")
+        raw = pd.concat([res.read(f) for f in res.VOTE_FILES.get(y, [f"votacao_secao_{y}.csv"])])
+        raw = raw[raw.NR_TURNO == turno].QT_VOTOS.astype(int).sum()
+        kept = votes[key][votes[key].place.isin(base.id)].votos.sum()
+        print(f"  {key}: votes kept {kept:,} / raw {raw:,}" + ("" if kept == raw else "  !! MISMATCH"))
     cands = {y: res.candidates(y) for y in YEARS}
+    cands[ROUND2] = res.candidates(2022, "2")
     camp = res.mayor_coalitions()
 
     print("electorate profile")
@@ -135,6 +141,25 @@ def main():
         if c["numero"] in coat:
             c["efeito_simao"] = coat[c["numero"]]
     more.add_insights(ctx, cand_out, coat, heirs, proj, bench, absd, seats, add)
+    ideo = ex.ideology(ctx, cand_out)
+    dep22 = ex.deputies_2022(ctx, cand_out)
+    hist16 = ex.history_2016(ctx, cand_out)
+    ren = ex.renewal(ctx)
+    bench16 = ex.benches_2016(ctx)
+    ex.region_layers(ctx, regions_out, ideo)
+    for c in cand_out:
+        n = c["numero"]
+        if n in ideo["por_candidato"]:
+            c["alinhamento_lula"] = ideo["por_candidato"][n]
+        if n in dep22:
+            c["afinidade_2022"] = dep22[n]
+        if n in hist16:
+            c["hist_2016"] = hist16[n]
+    for p_, v in bench16.items():
+        bench.setdefault(p_, {"2020": 0, "2024": 0})["2016"] = v
+    for v in bench.values():
+        v.setdefault("2016", 0)
+    ex.add_insights(ctx, cand_out, ideo, dep22, hist16, ren, bench16, regions_out, add)
     ctx._overlap = pairs
     pdisp = perfil_disputa.analyse(ctx, cand_out, pairs["ids"])
     perfil_disputa.insights(pdisp, add)
@@ -158,7 +183,7 @@ def main():
     dump("insights.json", insights)
     dump("geografia.json", {"lisa": lisas, "dominios": dom, "segmentos": segs})
     dump("perfil_disputa.json", pdisp)
-    dump("extras.json", {"heranca": heirs, "projecao": proj, "bancadas": bench, "abstencao": absd})
+    dump("extras.json", {"heranca": heirs, "projecao": proj, "bancadas": bench, "abstencao": absd, "ideologia": ideo, "renovacao": ren})
     el = base.set_index("id").eleitores
     catch["eleitores"] = catch.id.map(el).values
     catch["eleitor_adulto"] = catch.eleitor_adulto.map(lambda x: r(x, 3))

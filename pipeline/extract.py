@@ -16,7 +16,7 @@ TSE_MUN = "25216"
 MATCH = re.compile(rf'(^|;)"?{TSE_MUN}"?(;|$)')
 SETOR = re.compile(r'^"?2611101')  # IBGE census tract codes for Petrolina
 
-MULTILINE = {"bens_2024.csv", "receitas_2024.csv", "despesas_2024.csv", "cand_2024.csv", "cand_2020.csv", "coligacao_2024.csv"}
+MULTILINE = {"bens_2024.csv", "receitas_2024.csv", "despesas_2024.csv", "cand_2024.csv", "cand_2020.csv", "coligacao_2024.csv", "cand_2016.csv"}
 
 # (zip, member regex, output name, filter). filter=None keeps every row.
 JOBS = [
@@ -38,6 +38,19 @@ JOBS = [
     ("detalhe_votacao_secao_2026.zip", r"_PE\.csv$", "detalhe_secao_2026.csv", MATCH),
     ("eleitorado_local_votacao_2026.zip", r"_PE\.csv$", "locais_2026.csv", MATCH),
     ("consulta_cand_2026.zip", r"_(PE|BR)\.csv$", "cand_2026.csv", None),
+    # 2022 general + 2026 president (national files filtered to Petrolina)
+    ("votacao_secao_2022_PE.zip", r"\.csv$", "votacao_secao_2022.csv", MATCH),
+    ("votacao_secao_2022_BR.zip", r"\.csv$", "votacao_secao_2022_pres.csv", MATCH),
+    ("detalhe_votacao_secao_2022.zip", r"_PE\.csv$", "detalhe_secao_2022.csv", MATCH),
+    ("detalhe_votacao_secao_2022.zip", r"_BRASIL\.csv$", "detalhe_secao_2022_pres.csv", MATCH),
+    ("eleitorado_local_votacao_2022.zip", r"\.csv$", "locais_2022.csv", MATCH),
+    ("consulta_cand_2022.zip", r"_(PE|BR)\.csv$", "cand_2022.csv", None),
+    ("votacao_secao_2026_BR.zip", r"\.csv$", "votacao_secao_2026_pres.csv", MATCH),
+    # 2016 municipal
+    ("votacao_secao_2016_PE.zip", r"\.csv$", "votacao_secao_2016.csv", MATCH),
+    ("detalhe_votacao_secao_2016.zip", r"_PE\.csv$", "detalhe_secao_2016.csv", MATCH),
+    ("eleitorado_local_votacao_2016.zip", r"\.csv$", "locais_2016.csv", MATCH),
+    ("consulta_cand_2016.zip", r"_PE\.csv$", "cand_2016.csv", MATCH),
     ("ibge_setores_demografia.zip", r"\.csv$", "censo_demografia.csv", SETOR),
     ("ibge_setores_alfabetizacao.zip", r"\.csv$", "censo_alfabetizacao.csv", SETOR),
 ]

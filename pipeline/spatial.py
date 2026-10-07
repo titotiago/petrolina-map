@@ -6,7 +6,7 @@ import pandas as pd
 from shapely import voronoi_polygons
 from shapely.geometry import MultiPoint, Point
 
-from analysis import BRANCO_NULO, fmt, matrix, shares
+from analysis import BRANCO_NULO, fmt, matrix, shares, shares_nan
 from common import haversine, r
 from geo import METRIC
 
@@ -201,8 +201,8 @@ FEATURES = {
 def place_features(ctx) -> pd.DataFrame:
     ids = ctx.base.id
     pf = shares(matrix(ctx, 2024, "prefeito"))
-    pf20 = shares(matrix(ctx, 2020, "prefeito"))
-    gov = shares(matrix(ctx, 2026, "governador"))
+    pf20 = shares_nan(matrix(ctx, 2020, "prefeito"))   # NaN where the place didn't exist in 2020
+    gov = shares_nan(matrix(ctx, 2026, "governador"))
     ver = matrix(ctx, 2024, "vereador")
     vs = shares(ver)
     nominal = vs[[c for c in vs.columns if len(c) > 2]]
