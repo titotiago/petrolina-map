@@ -179,6 +179,17 @@ function renderProfile(app: App, v: Vereador) {
         + (her.length ? `<h3>Herança de 2020</h3><p>A votação de ${fmt(v.votos)} se parece com a base de ex-vereadores que saíram da Câmara: ${her.map((h) => `<b>${esc(h.nome)}</b> (${esc(h.partido_2020)}, ${fmt(h.votos_2020)} votos em 2020; r=${h.herdeiros[0].r.toFixed(2).replace(".", ",")})`).join(", ")}.</p>` : "");
     })()}
     ${lp ? `<h3>Território estatístico</h3><p>Moran's I = <b>${lp.moran.toFixed(2).replace(".", ",")}</b> ${lp.moran > 0.5 ? "— votação fortemente agrupada em manchas (base de bairro)" : lp.moran > 0.25 ? "— agrupamento moderado" : "— votação pouco agrupada (rede pessoal/temática)"}. ${lp.redutos.length} locais-reduto. <a data-href="vmode=lisa">ver no mapa</a></p>` : ""}
+    ${(() => {
+      const pc = db.perfilDisputa.candidatos[v.numero];
+      if (!pc) return "";
+      const F = Object.entries(db.perfilDisputa.features);
+      const top = F.map(([k, l]) => ({ l, t: pc.apelo_t[k], pp: pc.apelo_pp[k] })).filter((f) => Math.abs(f.t) >= 2).sort((x, y) => Math.abs(y.t) - Math.abs(x.t)).slice(0, 3);
+      const QN: Record<string, string> = { disputa_direta: "disputa direta", disputa_territorial: "disputa territorial", mesmo_lugar_publico_diferente: "mesmo lugar, públicos diferentes", mesmo_publico_outro_lugar: "mesmo público, outro lugar", pouca_disputa: "pouca disputa" };
+      const rp = (v.rivais_perfil ?? []).filter((x) => x.perfil > 0.2);
+      return `<h3>Perfil do eleitor (além da geografia)</h3>
+        <p>${top.length ? `Comparado às mesmas escolas onde teve voto, o eleitor de ${esc(v.nome)} tem ${top.map((f) => `${f.t > 0 ? "mais" : "menos"} <b>${esc(f.l.toLowerCase())}</b> (${f.pp > 0 ? "+" : ""}${f.pp.toFixed(1).replace(".", ",")} p.p.)`).join(", ")}.` : `Sem perfil distinto: vota como a média das escolas onde é forte (nitidez ${pc.nitidez.toFixed(1).replace(".", ",")}).`}</p>
+        ${rp.length ? `<h4>Disputam o mesmo perfil de eleitor</h4>${bars(rp.map((x) => ({ label: (db.vByNum.get(x.numero)?.eleito ? "★ " : "") + (db.vByNum.get(x.numero)?.nome ?? x.numero), sub: QN[x.quadrante], value: x.perfil, note: `território ${pct(x.terr_secao, 0)}`, color: partyColor(db.vByNum.get(x.numero)?.partido), href: `tab=sobreposicao&smodo=disputa&pair=${v.numero},${x.numero}` })), { max: 1, format: (y) => (y > 0 ? "+" : "") + y.toFixed(2).replace(".", ",") })}` : ""}`;
+    })()}
     ${rivals.length ? `<h3>Quem divide o mesmo eleitorado</h3>${bars(rivals.map((r) => ({ label: (db.vByNum.get(r.n)?.eleito ? "★ " : "") + (db.vByNum.get(r.n)?.nome ?? r.n), sub: db.vByNum.get(r.n)?.partido, value: r.s, href: `tab=sobreposicao&pair=${v.numero},${r.n}` })), { max: 1 })}
       <p class="muted small">Sobreposição = fração da distribuição territorial dos votos que coincide (0–100%).</p>` : ""}
     ${f ? `<h3>Finanças de campanha</h3>${tiles([{ label: "Receitas", value: brl(f.receita_total) }, { label: "Despesas", value: brl(f.despesa_total) }, { label: "Bens declarados", value: brl(v.bens) }])}

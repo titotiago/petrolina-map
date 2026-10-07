@@ -34,7 +34,7 @@ npm run build                                # static bundle in web/dist (works 
 | **Planejador 2028** | **Slate simulator:** move any candidate to another party or federation (they keep their 2024 votes), add hypothetical candidates, optionally scale votes to the projected 2028 electorate, and see who gets elected under the full rules. Shows who comes in, who goes out, and seats by party. **Vote plan:** for any candidate and a vote target, a ranked list of polling places where the missing votes are most reachable. Each place's ceiling is the share the candidate already gets in the 6 nearest places (80th percentile), applied to the 2028 projected electorate; places are tagged as LISA gaps or strongholds. |
 | **Comparar candidatos** | Up to 3 candidates side by side: votes, trend, margin, vulnerability, territory, Moran's I, mayor coattail, finance, 2026 run. Map of who leads where, and votes by region. |
 | Achados | Auto-generated, ranked findings. Each opens the matching view. |
-| Sobreposição | Overlap **network**: classical MDS on 1 − overlap, so candidates with similar territories sit close; links show overlap ≥ 60%. Also a 23×23 heatmap and a head-to-head map for any pair. |
+| Sobreposição | Three modes. **Território (onde):** the original place-level overlap (network and matrix). **Perfil do eleitor (quem):** voter-profile similarity, net of geography, from section-level data. **Disputa combinada:** territory × profile quadrants (disputa direta, disputa territorial, mesmo lugar com públicos diferentes, mesmo público em outro lugar). Selecting a pair shows a head-to-head panel with both measures. Territory-mode details: overlap **network**: classical MDS on 1 − overlap, so candidates with similar territories sit close; links show overlap ≥ 60%. Also a 23×23 heatmap and a head-to-head map for any pair. |
 | Cadeiras & simulador | 2024 seat allocation rebuilt and checked against the official result (party quotient, leftover seats, first alternates, votes needed for one more seat), plus an editable 2028 seat simulator. |
 | Explorar mapa | Any election (2020, 2024, 2026), any office and any metric. Census tract choropleth, CSV export. |
 | Fontes | Sources, definitions, and polling places with approximate coordinates. |
@@ -94,6 +94,12 @@ TSE municipality code: 25216. IBGE code: 2611101.
 - **Coattails ("efeito Simão"):** correlation, weighted by voters, between a councillor's share and Simão's share across polling places.
 - **Vote inheritance:** for each 2020 councillor no longer in the council, the 2024 candidates whose per-place share best correlates with that councillor's 2020 share.
 - **2028 projection:** voters per place = 2026 voters × regional growth (60% of the 2024→26 pace + 40% of the 2020→24 pace, per two years). The projected QE assumes 2024's valid-vote rate.
+- **Voter-profile competition** (`pipeline/perfil_disputa.py`): uses the 701 sections and the TSE profile per section (age bands, schooling, sex).
+  - **Appeal:** for each candidate, Σ votes × (section profile − profile of its polling place) ÷ Σ votes. This measures how the candidate's voters differ from the voters of the *same schools*, which removes geography.
+  - **Noise:** the appeal is normalised by a within-school permutation test (300 shuffles of the candidate's votes among the sections of each school).
+  - **Profile clarity ("nitidez"):** the RMS of those t-values; about 1 means indistinguishable from chance.
+  - **Profile similarity:** the cosine of two candidates' t-vectors, shrunk by their clarity. Section-level territorial overlap is Σ min(pᵢ, qᵢ) over sections.
+  - **Limits:** this is ecological inference, because the vote is secret. It shows tendencies, not individual votes.
 - **Overlap** between two candidates = Σ min(pᵢ, qᵢ), where p and q are each candidate's share of their own vote at each polling place.
 - **2026 vote-pattern match:** Pearson correlation across polling places between the councillor's 2024 vote share and each 2026 candidate's share.
 - **New voters in 2028:** Census 2022 people aged 10–14, plus 40% of those aged 15–19. This is a rough estimate.

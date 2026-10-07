@@ -13,6 +13,7 @@ import geo  # noqa: E402
 import results as res  # noqa: E402
 import spatial  # noqa: E402
 import more  # noqa: E402
+import perfil_disputa  # noqa: E402
 from common import OUT, SEATS, r  # noqa: E402
 
 YEARS = [2020, 2024, 2026]
@@ -134,6 +135,14 @@ def main():
         if c["numero"] in coat:
             c["efeito_simao"] = coat[c["numero"]]
     more.add_insights(ctx, cand_out, coat, heirs, proj, bench, absd, seats, add)
+    ctx._overlap = pairs
+    pdisp = perfil_disputa.analyse(ctx, cand_out, pairs["ids"])
+    perfil_disputa.insights(pdisp, add)
+    for c in cand_out:
+        if c["numero"] in pdisp["candidatos"]:
+            rivals = sorted([p for p in pdisp["pares"] if c["numero"] in (p["a"], p["b"])], key=lambda p: -p["perfil"])[:5]
+            c["rivais_perfil"] = [{"numero": p["b"] if p["a"] == c["numero"] else p["a"], "perfil": p["perfil"], "terr_secao": p["terr_secao"], "quadrante": p["quadrante"]} for p in rivals]
+            c["apelo_pp"] = pdisp["candidatos"][c["numero"]]["apelo_pp"]
     insights.sort(key=lambda x: -x["relevancia"])
     for i, x in enumerate(insights):
         x["id"] = i + 1
@@ -148,6 +157,7 @@ def main():
     dump("sobreposicao.json", pairs)
     dump("insights.json", insights)
     dump("geografia.json", {"lisa": lisas, "dominios": dom, "segmentos": segs})
+    dump("perfil_disputa.json", pdisp)
     dump("extras.json", {"heranca": heirs, "projecao": proj, "bancadas": bench, "abstencao": absd})
     el = base.set_index("id").eleitores
     catch["eleitores"] = catch.id.map(el).values

@@ -22,6 +22,8 @@ export interface State {
   gmodo?: string;     // geography view mode
   seg?: string;       // selected segment
   sview?: string;     // overlap: matriz | rede
+  smodo?: string;     // overlap: territorio | perfil | disputa
+  todos?: string;     // include alternates in pair plots
   ordenar?: string;
   pmodo?: string;     // planner: chapa | plano
   alvo?: string;      // planner: candidate for vote plan

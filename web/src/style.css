@@ -309,3 +309,13 @@ ul.cols { columns: 2; column-gap: 16px; font-size: 0.82rem; }
 .tbl.cmp th:first-child { position: sticky; left: 0; background: var(--surface-2); z-index: 2; text-transform: none; letter-spacing: 0; font-size: 0.78rem; color: var(--text-secondary); }
 .tbl.cmp tbody th { text-align: left; font-weight: 550; font-size: 0.78rem; color: var(--text-secondary); background: var(--surface-2); text-transform: none; letter-spacing: 0; position: static; cursor: default; white-space: nowrap; }
 .tbl.cmp td { min-width: 130px; }
+
+/* pair scatter */
+.scatter { width: 100%; height: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-2); }
+.scatter text { font-size: 10px; fill: var(--text-muted); }
+.scatter text.ax { font-size: 11px; fill: var(--text-secondary); font-weight: 550; }
+.scatter text.ql { font-size: 9.5px; fill: var(--text-muted); font-weight: 650; letter-spacing: 0.05em; }
+.scatter line.g { stroke: var(--line); stroke-width: 1; }
+.scatter line.thr { stroke: var(--line-strong); stroke-width: 1.2; stroke-dasharray: 4 3; }
+.scatter circle { cursor: pointer; }
+.scatter circle:hover { stroke: var(--text-primary); stroke-width: 2; }

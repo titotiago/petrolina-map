@@ -26,6 +26,7 @@ export function renderInsights(app: App) {
       if (v.ordenar) patch.ordenar = v.ordenar;
       if (v.metrica) { if (v.tab === "regioes") patch.rmetric = v.metrica; else patch.metric = v.metrica; }
       if (v.modo) patch.gmodo = v.modo;
+      if (v.smodo) patch.smodo = v.smodo;
       if (v.cargo) patch.cargo = v.cargo;
       if (v.eleicao) patch.year = String(v.eleicao);
       if (v.camada) { patch.layer = v.camada as State["layer"]; patch.smetric = v.metrica; patch.metric = "vencedor"; }

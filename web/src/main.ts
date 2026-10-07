@@ -182,7 +182,8 @@ function renderSobre(app: App) {
       <li><b>Região-base</b> de um vereador: região onde obteve a maior parte dos votos.</li>
       <li><b>Locais efetivos</b> = 1/HHI da distribuição dos votos pelos locais. <b>Concentrado</b>: ≥55% dos votos em 10 locais; <b>regional</b>: ≥40% numa região; senão <b>espalhado</b>.</li>
       <li><b>Força relativa</b> (×): participação no local ÷ participação média na cidade.</li>
-      <li><b>Sobreposição</b> entre dois candidatos: Σ min(pᵢ, qᵢ) das distribuições territoriais dos votos.</li>
+      <li><b>Sobreposição</b> entre dois candidatos: Σ min(pᵢ, qᵢ) das distribuições territoriais dos votos (por local ou por seção).</li>
+      <li><b>Perfil do eleitor</b>: como os eleitores do candidato diferem dos eleitores das mesmas escolas (idade, escolaridade, gênero), estimado cruzando o voto e o perfil de cada seção. Normalizado por teste de permutação dentro de cada escola; <b>nitidez</b> ≈1 = indistinguível do acaso. A semelhança entre dois candidatos é o cosseno desses perfis, reduzido quando algum é pouco nítido. Inferência ecológica: o voto é secreto.</li>
       <li><b>Afinidade 2026</b>: correlação entre as participações por local do vereador (2024) e do candidato de 2026.</li>
       <li><b>Novos eleitores 2028</b>: Censo 2022, pessoas com 10–14 anos + 40% das de 15–19 (estimativa grosseira).</li>
       <li>Campos (cores): partido → coligação do candidato a prefeito em 2024 (TSE consulta_coligacao).</li>
