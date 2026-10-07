@@ -65,6 +65,7 @@ function dominio(app: App) {
   }
   app.map.setPlaces(st, (id) => {
     const d = D.locais[id];
+    if (!d) return `${tipBase(app, id)}<br><i>Sem votos suficientes para análise</i>`;
     return `${tipBase(app, id)}<br>${d.terra_de_ninguem ? "<i>Terra de ninguém</i><br>" : ""}${d.fortes.slice(0, 4).map((f) => `${esc(db.vByNum.get(f.numero)?.nome)} ${pct(f.pct)}`).join("<br>") || `Líder: ${esc(db.vByNum.get(d.lider)?.nome)} ${pct(d.lider_pct)}`}`;
   });
   app.legend(partyLegend(Object.values(D.locais).filter((d) => !d.terra_de_ninguem).map((d) => db.vByNum.get(d.lider)?.partido), "Partido do eleito que lidera a área — intensidade = % do líder", [{ label: "Terra de ninguém (líder < 8%)", color: OTHER() }], partyColor));
@@ -98,7 +99,7 @@ function conflito(app: App) {
     for (const [id, d] of Object.entries(D.locais)) st.set(id, { color: seq(Math.min(1, d.n_fortes / 5)), opacity: d.n_fortes ? 0.85 : 0.25, label: d.n_fortes >= 4 ? String(d.n_fortes) : undefined });
     app.legend(legendRamp(SEQ_STOPS, "0", "5+", "Nº de eleitos com 6%+ dos votos de vereador na área"));
   }
-  app.map.setPlaces(st, (id) => `${tipBase(app, id)}<br>${D.locais[id].fortes.map((f) => `${esc(db.vByNum.get(f.numero)?.nome)} ${pct(f.pct)}`).join("<br>")}`);
+  app.map.setPlaces(st, (id) => `${tipBase(app, id)}<br>${(D.locais[id]?.fortes ?? []).map((f) => `${esc(db.vByNum.get(f.numero)?.nome)} ${pct(f.pct)}`).join("<br>")}`);
   return `
     ${a && b ? `<div class="callout">Conflito: <b>${esc(db.vByNum.get(a)?.nome)}</b> × <b>${esc(db.vByNum.get(b)?.nome)}</b> · <a data-href="pair=">limpar</a> · <a data-href="tab=sobreposicao&pair=${a},${b}">ver sobreposição total</a></div>` : ""}
     <h3>Pares que dividem mais áreas</h3>
