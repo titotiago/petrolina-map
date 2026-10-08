@@ -60,6 +60,7 @@ _Gerado automaticamente pelo pipeline. QE 2024 = 7.903 votos; alocação simulad
 - **Abstenção: votos deixados na mesa** — Centro: 22% de abstenção; Zona Norte: 21% de abstenção; Zona Oeste (externa): 20% de abstenção.
 - **O voto para prefeito não é explicado pelo perfil social** — O perfil dos locais explica pouco do voto em Simão (R² 0.06) e um pouco mais o de Dr. Julio (R² 0.22): em 2024 o voto municipal seguiu fatores locais (território, lideranças), não recortes de renda, idade ou escolaridade.
 - **Comparecimento 2020 → 2024** — Maior queda: Bebedouro / Massangano (-2.7 p.p.). Maior alta: Zona Leste (+0.9 p.p.).
+- **Obras federais em Petrolina (Obrasgov)** — 105 obras com recursos federais cadastradas no Obrasgov: cadastrada 42, concluída 37, em execução 19, cancelada 4, inacabada 2, paralisada 1. As paralisadas e inacabadas aparecem em vermelho no mapa.
 
 ## Sinal de 2026
 

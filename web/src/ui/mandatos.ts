@@ -97,8 +97,8 @@ function emendas(app: App) {
 function obras(app: App) {
   const O = app.db.mandatos.obras;
   const pts = O.filter((o) => o.lat != null);
-  app.map.setPois(pts.map((o) => ({ lat: o.lat!, lon: o.lon!, color: o.situacao === "Concluída" ? "#1baf7a" : o.situacao === "Paralisada" ? "#c0392b" : "#eda100", name: `<b>${esc(o.nome)}</b><br>${esc(o.situacao)}` })));
-  app.legend(legendCats([{ label: "Concluída", color: "#1baf7a" }, { label: "Em execução / outra", color: "#eda100" }, { label: "Paralisada", color: "#c0392b" }], "Obras federais (Obrasgov)"));
+  app.map.setPois(pts.map((o) => ({ lat: o.lat!, lon: o.lon!, color: o.situacao === "Concluída" ? "#1baf7a" : o.situacao === "Paralisada" || o.situacao === "Inacabada" ? "#c0392b" : o.situacao === "Cancelada" ? "#a9a8a2" : "#eda100", name: `<b>${esc(o.nome)}</b><br>${esc(o.situacao)}` })));
+  app.legend(legendCats([{ label: "Concluída", color: "#1baf7a" }, { label: "Em execução / cadastrada", color: "#eda100" }, { label: "Paralisada / inacabada", color: "#c0392b" }, { label: "Cancelada", color: "#a9a8a2" }], "Obras federais (Obrasgov)"));
   const bySit: Record<string, number> = {};
   O.forEach((o) => (bySit[o.situacao ?? "–"] = (bySit[o.situacao ?? "–"] ?? 0) + 1));
   return `<p class="lead">${O.length} obras com recursos federais em Petrolina no Obrasgov (${pts.length} com coordenadas no mapa).</p>

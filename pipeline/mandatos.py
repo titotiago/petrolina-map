@@ -288,6 +288,12 @@ def add_insights(cam, inv, em, cands, regions_out, add):
             + ", ".join(f"{k} (R$ {v['por_eleitor']:,.0f})".replace(",", ".") for k, v in R[:3]) + "; menor em "
             + ", ".join(f"{k} (R$ {v['por_eleitor']:,.0f})".replace(",", ".") for k, v in R[::-1][:3]) + ". É uma amostra: a maior parte do gasto não informa o local.",
             0.78, {"tab": "mandatos", "mmodo": "investimentos"})
+    ob = obras()
+    if ob:
+        sit = pd.Series([o["situacao"] for o in ob]).value_counts()
+        add("regioes", "Obras federais em Petrolina (Obrasgov)",
+            f"{len(ob)} obras com recursos federais cadastradas no Obrasgov: " + ", ".join(f"{k.lower()} {v}" for k, v in sit.items())
+            + ". As paralisadas e inacabadas aparecem em vermelho no mapa.", 0.6, {"tab": "mandatos", "mmodo": "obras"})
     if em:
         a = em["autores"]
         add("2026", "Emendas parlamentares para Petrolina",
